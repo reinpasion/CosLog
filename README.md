@@ -1,4 +1,4 @@
-# CircuitLiteM
+# CircuitLiteS
 
 A lightweight, single-file electronic circuit simulator that runs directly in your browser with zero dependencies.
 
