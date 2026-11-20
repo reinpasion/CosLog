@@ -1,0 +1,17 @@
+[package]
+name = "circuit_app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+circuit_core = { path = "../circuit_core" }
+eframe = { version = "0.31", default-features = false, features = ["glow", "x11", "wayland", "default_fonts"] }
+# system clipboard (Ctrl+C / Ctrl+V reach egui as Copy/Cut/Paste events)
+egui-winit = { version = "0.31", default-features = false, features = ["clipboard"] }
+# native Open/Save dialogs
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
+rodio = { version = "0.20", default-features = false, optional = true }
+
+[features]
+default = []
+audio = ["dep:rodio"]
