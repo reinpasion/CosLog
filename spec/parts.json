@@ -1,0 +1,4518 @@
+{
+ "$comment": "CosLog single source of truth. Generated from index.html (JS) and cross-checked against coslogx (Rust). Edit this file, not the editions.",
+ "schema": 1,
+ "grid": 20,
+ "transform": "mirror X first (x -> -x), then rotate r*90 degrees clockwise; text is never mirrored",
+ "pathSyntax": "Space-separated numbers per command. M x y | L x y | A cx cy r a0 a1 ccw(0|1) (radians, canvas arc semantics, implicit line to arc start) | C x1 y1 x2 y2 x y | Q x1 y1 x y. Numbers inside {} are wiper expressions: w, w-4, w+4.",
+ "whenSyntax": {
+  "state": "runtime state field name with eq|bit",
+  "param": "saved param key with in[]",
+  "value": "lt|gt than N on parsed v",
+  "hi": "logic probe: av > threshold"
+ },
+ "stateFields": [
+  "vp",
+  "ip",
+  "is",
+  "av",
+  "sq",
+  "gl",
+  "cnt",
+  "pc",
+  "st",
+  "qs",
+  "bv",
+  "ht",
+  "bl",
+  "w",
+  "ang",
+  "cur",
+  "pi",
+  "pv",
+  "ia",
+  "pw",
+  "on",
+  "ix"
+ ],
+ "quantities": {
+  "peakI": "pi",
+  "avgI": "ia",
+  "peakV": "pv",
+  "power": "pw"
+ },
+ "tolerance": {
+  "parts": [
+   "r",
+   "l",
+   "c"
+  ],
+  "applyWhen": "param p > 0 (percent)",
+  "formula": "value *= 1 + p/100 * rnd(seed, i)",
+  "rnd": "splitmix64: z = seed + (i+1)*0x9E3779B97F4A7C15 (wrapping); z = (z ^ z>>30) * 0xBF58476D1CE4E5B9; z = (z ^ z>>27) * 0x94D049BB133111EB; z ^= z>>31; return (z>>11)/2^52 - 1",
+  "defaultSeed": 24301,
+  "defaultSeedHex": "0x5EED"
+ },
+ "diagnostics": {
+  "sourceShortCurrentA": 15,
+  "sourceRunawayCurrentA": 20,
+  "ledWarnCurrentA": 0.05,
+  "nodeVoltageErrorV": 1000,
+  "lagWarnFrames": 3,
+  "holdMs": 3000,
+  "dangleListMax": 6,
+  "noDcPathListMax": 6,
+  "messages": {
+   "empty": "Place parts, wire them (click a pin to start a wire), add a Ground, then press Run.",
+   "noGround": "No Ground part: node voltages and meters have no reference. Add a Ground.",
+   "shortedTerminals": "{name} has both terminals on one node (shorted by wiring).",
+   "dangling": "Unconnected pin(s): {list}{more}. Wire them or remove the part.",
+   "noDcPath": "No DC path to ground at: {list}. Readings there are unreliable. Connect to ground or add a bleed resistor (capacitors and open switches block DC).",
+   "info": "{parts} parts, {nodes} nodes, step {dt}{newton}{farm}",
+   "newton": ", Newton solver active",
+   "farm": ", {n} independent section{s} on {w} thread{s2}",
+   "noConverge": "Solver did not converge in {n} step(s) (last change {md}). Try: series resistance on diodes/LEDs/sources, lower op-amp gain, check transistor polarity, or lower the speed.",
+   "lag": "Cannot keep real-time on this CPU, so the simulation runs slower than the speed setting. {hint}",
+   "lagHintAuto": "Auto quality has coarsened the time step to keep up.",
+   "lagHintManual": "Set Quality to Auto or Fast, or simplify the circuit.",
+   "nodeVoltage": "Node voltage reached {v}: usually a floating node, a shorted ideal source, or a missing ground path.",
+   "sourceRunaway": "{name} supplies {i}: probably a short circuit. Add series resistance.",
+   "ledCurrent": "{name} carries {i}: add a current-limiting resistor.",
+   "fuseBlown": "{name} has blown (open). Press Reset to replace it.",
+   "shortTrace": "{name} is short-circuited through {via}. Marked in red on the schematic.",
+   "shortWiring": "wiring",
+   "partFault": "{name}: {msg}.",
+   "limitErr": "{msg}{value} exceeds {limit}",
+   "limitWarn": "{msg}{value} near limit {limit}",
+   "sourceShort": "short circuit: supplying {i}",
+   "fuseFault": "blown (open)",
+   "pinFault": "pin {n} unconnected",
+   "faultShort": "short circuit",
+   "faultPath": "in short-circuit path"
+  },
+  "nameRule": "display name = n if non-empty, else part code"
+ },
+ "formatters": {
+  "value": "v + (u ?? labelUnit) + valueSuffix entries (\" {f}{unit}\"); empty when v is absent",
+  "meter": "rms if ac > 2% of rms and > 1e-6, else average; units V or A",
+  "ohm": "OL if av > 1e8 else fm(av, \"Ω\")",
+  "motor": "round(w * 9.549) + \" rpm\"",
+  "logic": "HIGH if av > threshold else LOW",
+  "none": "(blank)"
+ },
+ "ledColors": {
+  "red": {
+   "is": 1e-18,
+   "rgb": "255,70,50"
+  },
+  "yellow": {
+   "is": 1e-19,
+   "rgb": "255,210,40"
+  },
+  "green": {
+   "is": 1e-20,
+   "rgb": "60,220,90"
+  },
+  "blue": {
+   "is": 1e-27,
+   "rgb": "70,130,255"
+  },
+  "white": {
+   "is": 1e-26,
+   "rgb": "255,255,235"
+  }
+ },
+ "groups": [
+  {
+   "name": "Sources",
+   "parts": [
+    "dc",
+    "ac",
+    "sg",
+    "cs",
+    "sol",
+    "gnd"
+   ]
+  },
+  {
+   "name": "Passive",
+   "parts": [
+    "r",
+    "pot",
+    "ldr",
+    "ntc",
+    "l",
+    "c",
+    "tr",
+    "fu"
+   ]
+  },
+  {
+   "name": "Switches",
+   "parts": [
+    "sw",
+    "bt",
+    "nb",
+    "sp",
+    "rl"
+   ]
+  },
+  {
+   "name": "Diodes",
+   "parts": [
+    "d",
+    "sd",
+    "led",
+    "zd",
+    "br"
+   ]
+  },
+  {
+   "name": "Transistors",
+   "parts": [
+    "npn",
+    "pnp",
+    "nm",
+    "pm"
+   ]
+  },
+  {
+   "name": "ICs & logic",
+   "parts": [
+    "op",
+    "reg",
+    "and",
+    "or",
+    "not",
+    "nand",
+    "nor",
+    "xor",
+    "dff",
+    "jk",
+    "tf",
+    "srf",
+    "ctr",
+    "tm"
+   ]
+  },
+  {
+   "name": "Loads",
+   "parts": [
+    "lamp",
+    "mo",
+    "bz"
+   ]
+  },
+  {
+   "name": "Instruments",
+   "parts": [
+    "vm",
+    "am",
+    "om",
+    "lg",
+    "os"
+   ]
+  }
+ ],
+ "parts": {
+  "dc": {
+   "name": "DC Source",
+   "prefix": "V",
+   "group": "Sources",
+   "keywords": "battery cell supply power",
+   "pins": [
+    {
+     "x": 0,
+     "y": -40
+    },
+    {
+     "x": 0,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": true,
+   "tolerance": false,
+   "defaults": {
+    "v": "9",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Voltage",
+     "unit": "V",
+     "default": "9"
+    },
+    {
+     "key": "p",
+     "name": "Series R",
+     "unit": "Ω",
+     "default": "0"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M0 -40L0 -6"
+    },
+    {
+     "d": "M0 6L0 40"
+    },
+    {
+     "d": "M-12 -6L12 -6"
+    },
+    {
+     "d": "M-6 6L6 6"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "ac": {
+   "name": "AC Source",
+   "prefix": "V",
+   "group": "Sources",
+   "keywords": "mains generator sine",
+   "pins": [
+    {
+     "x": 0,
+     "y": -40
+    },
+    {
+     "x": 0,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": true,
+   "tolerance": false,
+   "defaults": {
+    "v": "12",
+    "f": "50"
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Amplitude",
+     "unit": "V",
+     "default": "12"
+    },
+    {
+     "key": "f",
+     "name": "Frequency",
+     "unit": "Hz",
+     "default": "50"
+    },
+    {
+     "key": "p",
+     "name": "Offset",
+     "unit": "V",
+     "default": "0"
+    },
+    {
+     "key": "q",
+     "name": "Phase",
+     "unit": "°",
+     "default": "0"
+    },
+    {
+     "key": "s",
+     "name": "Series R",
+     "unit": "Ω",
+     "default": "0"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M0 -40L0 -16"
+    },
+    {
+     "d": "M0 16L0 40"
+    },
+    {
+     "d": "M16 0A0 0 16 0 6.2832 0"
+    },
+    {
+     "d": "M-9 0C-5 -12 -1 -12 0 0C1 12 5 12 9 0"
+    }
+   ],
+   "valueFormat": "value",
+   "valueSuffix": [
+    {
+     "key": "f",
+     "unit": "Hz"
+    }
+   ]
+  },
+  "gnd": {
+   "name": "Ground",
+   "group": "Sources",
+   "keywords": "ground earth reference 0v",
+   "pins": [
+    {
+     "x": 0,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "symbol": [
+    {
+     "d": "M0 0L0 6"
+    },
+    {
+     "d": "M-10 6L10 6"
+    },
+    {
+     "d": "M-6 10L6 10"
+    },
+    {
+     "d": "M-2 14L2 14"
+    }
+   ],
+   "valueFormat": "none"
+  },
+  "r": {
+   "name": "Resistor",
+   "prefix": "R",
+   "group": "Passive",
+   "keywords": "resistor ohm",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": true,
+   "defaults": {
+    "v": "1k",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Resistance",
+     "unit": "Ω",
+     "default": "1k"
+    },
+    {
+     "key": "p",
+     "name": "Tolerance",
+     "unit": "%",
+     "default": "0"
+    },
+    {
+     "key": "q",
+     "name": "Power rating",
+     "unit": "W",
+     "default": "0.25"
+    }
+   ],
+   "labelUnit": "Ω",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "shortPath": [
+    {
+     "when": {
+      "value": "lt",
+      "than": 0.5
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "power",
+     "warn": 0.75,
+     "err": 1,
+     "msg": "overheating ",
+     "unit": "W",
+     "ref": {
+      "key": "q",
+      "default": 0.25
+     }
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-20 0L-15 -8L-5 8L5 -8L15 8L20 0L40 0"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "l": {
+   "name": "Inductor",
+   "prefix": "L",
+   "group": "Passive",
+   "keywords": "coil choke inductor henry",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": true,
+   "defaults": {
+    "v": "100m",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Inductance",
+     "unit": "H",
+     "default": "100m"
+    },
+    {
+     "key": "p",
+     "name": "Tolerance",
+     "unit": "%",
+     "default": "0"
+    },
+    {
+     "key": "q",
+     "name": "Initial I",
+     "unit": "A",
+     "default": "0"
+    }
+   ],
+   "labelUnit": "H",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "peakI",
+     "warn": 3,
+     "err": 5,
+     "msg": "overcurrent ",
+     "unit": "A"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-24 0"
+    },
+    {
+     "d": "M24 0L40 0"
+    },
+    {
+     "d": "M-24 0A-18 0 6 3.1416 0 0"
+    },
+    {
+     "d": "M-12 0A-6 0 6 3.1416 0 0"
+    },
+    {
+     "d": "M0 0A6 0 6 3.1416 0 0"
+    },
+    {
+     "d": "M12 0A18 0 6 3.1416 0 0"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "c": {
+   "name": "Capacitor",
+   "prefix": "C",
+   "group": "Passive",
+   "keywords": "capacitor farad",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": true,
+   "defaults": {
+    "v": "10u",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Capacitance",
+     "unit": "F",
+     "default": "10u"
+    },
+    {
+     "key": "p",
+     "name": "Tolerance",
+     "unit": "%",
+     "default": "0"
+    },
+    {
+     "key": "q",
+     "name": "Initial V",
+     "unit": "V",
+     "default": "0"
+    },
+    {
+     "key": "s",
+     "name": "Voltage rating",
+     "unit": "V",
+     "default": "50"
+    }
+   ],
+   "labelUnit": "F",
+   "limits": [
+    {
+     "q": "peakV",
+     "warn": 0.8,
+     "err": 1,
+     "msg": "overvoltage ",
+     "unit": "V",
+     "ref": {
+      "key": "s",
+      "default": 50
+     }
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-4 0"
+    },
+    {
+     "d": "M4 0L40 0"
+    },
+    {
+     "d": "M-4 -12L-4 12"
+    },
+    {
+     "d": "M4 -12L4 12"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "tr": {
+   "name": "Transformer",
+   "prefix": "T",
+   "group": "Passive",
+   "keywords": "transformer",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20
+    },
+    {
+     "x": -40,
+     "y": 20
+    },
+    {
+     "x": 40,
+     "y": -20
+    },
+    {
+     "x": 40,
+     "y": 20
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "2",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Turns ratio",
+     "unit": ":1",
+     "default": "2"
+    },
+    {
+     "key": "p",
+     "name": "Coupling k",
+     "unit": "",
+     "default": "0.995"
+    }
+   ],
+   "labelUnit": ":1",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ],
+      [
+       2,
+       3
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "avgI",
+     "warn": 2,
+     "err": 4,
+     "msg": "winding overcurrent ",
+     "unit": "A"
+    },
+    {
+     "q": "peakI",
+     "warn": 20,
+     "err": 40,
+     "msg": "winding surge ",
+     "unit": "A"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-16 -20"
+    },
+    {
+     "d": "M-40 20L-16 20"
+    },
+    {
+     "d": "M16 -20L40 -20"
+    },
+    {
+     "d": "M16 20L40 20"
+    },
+    {
+     "d": "M-3 -20L-3 20"
+    },
+    {
+     "d": "M3 -20L3 20"
+    },
+    {
+     "d": "M-16 -20A-16 -10 10 -1.5708 1.5708 0"
+    },
+    {
+     "d": "M-16 0A-16 10 10 -1.5708 1.5708 0"
+    },
+    {
+     "d": "M16 -20A16 -10 10 -1.5708 1.5708 1"
+    },
+    {
+     "d": "M16 0A16 10 10 -1.5708 1.5708 1"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "npn": {
+   "name": "NPN",
+   "prefix": "Q",
+   "group": "Transistors",
+   "keywords": "transistor bjt",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 20,
+     "y": -40
+    },
+    {
+     "x": 20,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [
+    {
+     "key": "p",
+     "name": "Gain (hFE)",
+     "unit": "",
+     "default": "100"
+    }
+   ],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       1,
+       2
+      ],
+      [
+       0,
+       2
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "peakV",
+     "warn": 32,
+     "err": 40,
+     "msg": "Vce ",
+     "unit": "V"
+    },
+    {
+     "q": "avgI",
+     "warn": 0.15,
+     "err": 0.4,
+     "msg": "collector current ",
+     "unit": "A"
+    },
+    {
+     "q": "peakI",
+     "warn": 0.6,
+     "err": 1.5,
+     "msg": "surge ",
+     "unit": "A"
+    },
+    {
+     "q": "power",
+     "warn": 0.4,
+     "err": 0.6,
+     "msg": "dissipating ",
+     "unit": "W"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-8 0"
+    },
+    {
+     "d": "M-8 -16L-8 16"
+    },
+    {
+     "d": "M-8 -6L20 -24L20 -40"
+    },
+    {
+     "d": "M-8 6L20 24L20 40"
+    },
+    {
+     "d": "M5.5 19.5L14.4 20.4L9.9 12.7"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "pnp": {
+   "name": "PNP",
+   "prefix": "Q",
+   "group": "Transistors",
+   "keywords": "transistor bjt",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 20,
+     "y": -40
+    },
+    {
+     "x": 20,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [
+    {
+     "key": "p",
+     "name": "Gain (hFE)",
+     "unit": "",
+     "default": "100"
+    }
+   ],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       1,
+       2
+      ],
+      [
+       0,
+       2
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "peakV",
+     "warn": 32,
+     "err": 40,
+     "msg": "Vce ",
+     "unit": "V"
+    },
+    {
+     "q": "avgI",
+     "warn": 0.15,
+     "err": 0.4,
+     "msg": "collector current ",
+     "unit": "A"
+    },
+    {
+     "q": "peakI",
+     "warn": 0.6,
+     "err": 1.5,
+     "msg": "surge ",
+     "unit": "A"
+    },
+    {
+     "q": "power",
+     "warn": 0.4,
+     "err": 0.6,
+     "msg": "dissipating ",
+     "unit": "W"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-8 0"
+    },
+    {
+     "d": "M-8 -16L-8 16"
+    },
+    {
+     "d": "M-8 -6L20 -24L20 -40"
+    },
+    {
+     "d": "M-8 6L20 24L20 40"
+    },
+    {
+     "d": "M3.5 18.2L-1 10.5L7.9 11.4"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "sw": {
+   "name": "Switch",
+   "prefix": "SW",
+   "group": "Switches",
+   "keywords": "switch toggle",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "toggle": "latch",
+   "state": [
+    "on"
+   ],
+   "dcPath": [
+    {
+     "when": {
+      "state": "on",
+      "eq": 1
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "shortPath": [
+    {
+     "when": {
+      "state": "on",
+      "eq": 1
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-14 0"
+    },
+    {
+     "d": "M14 0L40 0"
+    },
+    {
+     "d": "M-14 0L12 -14",
+     "when": {
+      "state": "on",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M-14 0L14 0",
+     "when": {
+      "state": "on",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "bt": {
+   "name": "Button",
+   "prefix": "BTN",
+   "group": "Switches",
+   "keywords": "button push momentary",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "toggle": "momentary",
+   "state": [
+    "on"
+   ],
+   "dcPath": [
+    {
+     "when": {
+      "state": "on",
+      "eq": 1
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "shortPath": [
+    {
+     "when": {
+      "state": "on",
+      "eq": 1
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-12 0"
+    },
+    {
+     "d": "M12 0L40 0"
+    },
+    {
+     "d": "M-10 -14L10 -14",
+     "when": {
+      "state": "on",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M0 -14L0 -22",
+     "when": {
+      "state": "on",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M-12 0L12 0",
+     "when": {
+      "state": "on",
+      "eq": 1
+     }
+    },
+    {
+     "d": "M-10 -4L10 -4",
+     "when": {
+      "state": "on",
+      "eq": 1
+     }
+    },
+    {
+     "d": "M0 -4L0 -12",
+     "when": {
+      "state": "on",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "vm": {
+   "name": "Voltmeter",
+   "prefix": "VM",
+   "group": "Instruments",
+   "keywords": "voltmeter meter",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "state": [
+    "av",
+    "sq"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-16 0"
+    },
+    {
+     "d": "M16 0L40 0"
+    },
+    {
+     "d": "M16 0A0 0 16 0 6.2832 0"
+    }
+   ],
+   "centerText": {
+    "text": "V",
+    "font": "bold 14px",
+    "dy": 5
+   },
+   "valueFormat": "meter"
+  },
+  "am": {
+   "name": "Ammeter",
+   "prefix": "AM",
+   "group": "Instruments",
+   "keywords": "ammeter meter current",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "state": [
+    "av",
+    "sq"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "shortPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "avgI",
+     "warn": 3,
+     "err": 10,
+     "msg": "overload ",
+     "unit": "A"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-16 0"
+    },
+    {
+     "d": "M16 0L40 0"
+    },
+    {
+     "d": "M16 0A0 0 16 0 6.2832 0"
+    }
+   ],
+   "centerText": {
+    "text": "A",
+    "font": "bold 14px",
+    "dy": 5
+   },
+   "valueFormat": "meter"
+  },
+  "om": {
+   "name": "Ohmmeter",
+   "prefix": "OM",
+   "group": "Instruments",
+   "keywords": "ohmmeter resistance meter",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "state": [
+    "av"
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-16 0"
+    },
+    {
+     "d": "M16 0L40 0"
+    },
+    {
+     "d": "M16 0A0 0 16 0 6.2832 0"
+    }
+   ],
+   "centerText": {
+    "text": "Ω",
+    "font": "bold 14px",
+    "dy": 5
+   },
+   "valueFormat": "ohm"
+  },
+  "lg": {
+   "name": "Logic probe",
+   "prefix": "LG",
+   "group": "Instruments",
+   "keywords": "logic probe",
+   "pins": [
+    {
+     "x": 0,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "2.5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Threshold",
+     "unit": "V",
+     "default": "2.5"
+    }
+   ],
+   "labelUnit": "V",
+   "state": [
+    "av"
+   ],
+   "symbol": [
+    {
+     "d": "M0 0L0 8",
+     "fill": "gr",
+     "fillWhen": [
+      {
+       "when": {
+        "state": "hi"
+       },
+       "color": "#e11"
+      }
+     ]
+    },
+    {
+     "d": "M7 15A0 15 7 0 6.2832 0",
+     "fill": "gr",
+     "fillWhen": [
+      {
+       "when": {
+        "state": "hi"
+       },
+       "color": "#e11"
+      }
+     ]
+    }
+   ],
+   "valueFormat": "logic"
+  },
+  "d": {
+   "name": "Diode",
+   "prefix": "D",
+   "group": "Diodes",
+   "keywords": "diode rectifier",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "avgI",
+     "warn": 0.7,
+     "err": 1,
+     "msg": "overcurrent ",
+     "unit": "A"
+    },
+    {
+     "q": "peakI",
+     "warn": 10,
+     "err": 30,
+     "msg": "surge ",
+     "unit": "A"
+    },
+    {
+     "q": "peakV",
+     "warn": 80,
+     "err": 100,
+     "msg": "reverse breakdown ",
+     "unit": "V"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-8 0"
+    },
+    {
+     "d": "M8 0L40 0"
+    },
+    {
+     "d": "M-8 -10L8 0L-8 10L-8 -10"
+    },
+    {
+     "d": "M8 -10L8 10"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "led": {
+   "name": "LED",
+   "prefix": "LED",
+   "group": "Diodes",
+   "keywords": "light emitting indicator",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [
+    {
+     "key": "p",
+     "name": "Color",
+     "unit": "",
+     "default": "red",
+     "options": [
+      "red",
+      "yellow",
+      "green",
+      "blue",
+      "white"
+     ]
+    }
+   ],
+   "labelUnit": "",
+   "state": [
+    "gl"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "avgI",
+     "warn": 0.025,
+     "err": 0.05,
+     "msg": "overcurrent ",
+     "unit": "A"
+    },
+    {
+     "q": "peakI",
+     "warn": 0.15,
+     "err": 0.3,
+     "msg": "surge ",
+     "unit": "A"
+    },
+    {
+     "q": "peakV",
+     "warn": 4,
+     "err": 6,
+     "msg": "reverse voltage ",
+     "unit": "V"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-8 0"
+    },
+    {
+     "d": "M8 0L40 0"
+    },
+    {
+     "d": "M-8 -10L8 0L-8 10L-8 -10"
+    },
+    {
+     "d": "M8 -10L8 10"
+    },
+    {
+     "d": "M-2 -13L4 -21"
+    },
+    {
+     "d": "M5 -12L11 -20"
+    }
+   ],
+   "glow": {
+    "r": 18,
+    "color": {
+     "param": "p",
+     "map": "ledColors"
+    }
+   },
+   "valueFormat": "value"
+  },
+  "zd": {
+   "name": "Zener",
+   "prefix": "DZ",
+   "group": "Diodes",
+   "keywords": "zener regulator reference",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5.1",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Zener voltage",
+     "unit": "V",
+     "default": "5.1"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "power",
+     "warn": 0.4,
+     "err": 0.5,
+     "msg": "overpowered ",
+     "unit": "W"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-8 0"
+    },
+    {
+     "d": "M8 0L40 0"
+    },
+    {
+     "d": "M-8 -10L8 0L-8 10L-8 -10"
+    },
+    {
+     "d": "M8 -10L8 10"
+    },
+    {
+     "d": "M8 -10L12 -13"
+    },
+    {
+     "d": "M8 10L4 13"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "cs": {
+   "name": "Current src",
+   "prefix": "I",
+   "group": "Sources",
+   "keywords": "current source",
+   "pins": [
+    {
+     "x": 0,
+     "y": -40
+    },
+    {
+     "x": 0,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "10m",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Current",
+     "unit": "A",
+     "default": "10m"
+    }
+   ],
+   "labelUnit": "A",
+   "symbol": [
+    {
+     "d": "M0 -40L0 -16"
+    },
+    {
+     "d": "M0 16L0 40"
+    },
+    {
+     "d": "M16 0A0 0 16 0 6.2832 0"
+    },
+    {
+     "d": "M0 9L0 -9"
+    },
+    {
+     "d": "M-4 -4L0 -9L4 -4"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "pot": {
+   "name": "Potentiometer",
+   "prefix": "RV",
+   "group": "Passive",
+   "keywords": "potentiometer variable trimmer volume",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    },
+    {
+     "x": 0,
+     "y": -40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "10k",
+    "f": "50"
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Resistance",
+     "unit": "Ω",
+     "default": "10k"
+    },
+    {
+     "key": "f",
+     "name": "Wiper",
+     "unit": "%",
+     "default": "50"
+    }
+   ],
+   "labelUnit": "Ω",
+   "live": {
+    "key": "f",
+    "min": 0,
+    "max": 100,
+    "poke": "pp",
+    "scale": 0.01
+   },
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       2
+      ],
+      [
+       2,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-20 0L-15 -8L-5 8L5 -8L15 8L20 0L40 0"
+    },
+    {
+     "d": "M0 -40L0 -26L{w} -26L{w} -12",
+     "wiper": true
+    },
+    {
+     "d": "M{w-4} -17L{w} -11L{w+4} -17",
+     "wiper": true
+    }
+   ],
+   "valueFormat": "value",
+   "valueSuffix": [
+    {
+     "key": "f",
+     "unit": "%"
+    }
+   ]
+  },
+  "lamp": {
+   "name": "Lamp",
+   "prefix": "LP",
+   "group": "Loads",
+   "keywords": "bulb light",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "100",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Resistance",
+     "unit": "Ω",
+     "default": "100"
+    },
+    {
+     "key": "p",
+     "name": "Full-bright power",
+     "unit": "W",
+     "default": "0.5"
+    }
+   ],
+   "labelUnit": "Ω",
+   "state": [
+    "gl"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "power",
+     "warn": 1.2,
+     "err": 1.6,
+     "msg": "overpowered ",
+     "unit": "W",
+     "ref": {
+      "key": "p",
+      "default": 0.5
+     }
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-14 0"
+    },
+    {
+     "d": "M14 0L40 0"
+    },
+    {
+     "d": "M14 0A0 0 14 0 6.2832 0"
+    },
+    {
+     "d": "M-10 -10L10 10"
+    },
+    {
+     "d": "M-10 10L10 -10"
+    }
+   ],
+   "glow": {
+    "r": 16,
+    "color": "255,210,60"
+   },
+   "valueFormat": "value"
+  },
+  "op": {
+   "name": "Op-amp",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "opamp operational amplifier comparator",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "+"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "−"
+    },
+    {
+     "x": 40,
+     "y": 0,
+     "label": "OUT"
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "12",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Supply rail",
+     "unit": "V",
+     "default": "12"
+    },
+    {
+     "key": "p",
+     "name": "Open-loop gain",
+     "unit": "",
+     "default": "10k"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-20 -20"
+    },
+    {
+     "d": "M-40 20L-20 20"
+    },
+    {
+     "d": "M30 0L40 0"
+    },
+    {
+     "d": "M-20 -30L-20 30L30 0L-20 -30"
+    },
+    {
+     "d": "M-17 -20L-11 -20"
+    },
+    {
+     "d": "M-14 -23L-14 -17"
+    },
+    {
+     "d": "M-17 20L-11 20"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "nm": {
+   "name": "NMOS",
+   "prefix": "M",
+   "group": "Transistors",
+   "keywords": "mosfet fet transistor",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 20,
+     "y": -40
+    },
+    {
+     "x": 20,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "2",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Threshold",
+     "unit": "V",
+     "default": "2"
+    },
+    {
+     "key": "p",
+     "name": "Gain K",
+     "unit": "A/V²",
+     "default": "0.01"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       1,
+       2
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "peakV",
+     "warn": 48,
+     "err": 60,
+     "msg": "Vds ",
+     "unit": "V"
+    },
+    {
+     "q": "avgI",
+     "warn": 1.5,
+     "err": 3,
+     "msg": "drain current ",
+     "unit": "A"
+    },
+    {
+     "q": "peakI",
+     "warn": 6,
+     "err": 12,
+     "msg": "surge ",
+     "unit": "A"
+    },
+    {
+     "q": "power",
+     "warn": 0.8,
+     "err": 1.2,
+     "msg": "dissipating ",
+     "unit": "W"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-12 0"
+    },
+    {
+     "d": "M-12 -14L-12 14"
+    },
+    {
+     "d": "M-6 -16L-6 -6"
+    },
+    {
+     "d": "M-6 -4L-6 4"
+    },
+    {
+     "d": "M-6 6L-6 16"
+    },
+    {
+     "d": "M-6 -11L20 -11L20 -40"
+    },
+    {
+     "d": "M-6 11L20 11L20 40"
+    },
+    {
+     "d": "M-6 0L0 0"
+    },
+    {
+     "d": "M-6 0L0 -3L0 3L-6 0"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "pm": {
+   "name": "PMOS",
+   "prefix": "M",
+   "group": "Transistors",
+   "keywords": "mosfet fet transistor",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 20,
+     "y": -40
+    },
+    {
+     "x": 20,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "2",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Threshold",
+     "unit": "V",
+     "default": "2"
+    },
+    {
+     "key": "p",
+     "name": "Gain K",
+     "unit": "A/V²",
+     "default": "0.01"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       1,
+       2
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "peakV",
+     "warn": 48,
+     "err": 60,
+     "msg": "Vds ",
+     "unit": "V"
+    },
+    {
+     "q": "avgI",
+     "warn": 1.5,
+     "err": 3,
+     "msg": "drain current ",
+     "unit": "A"
+    },
+    {
+     "q": "peakI",
+     "warn": 6,
+     "err": 12,
+     "msg": "surge ",
+     "unit": "A"
+    },
+    {
+     "q": "power",
+     "warn": 0.8,
+     "err": 1.2,
+     "msg": "dissipating ",
+     "unit": "W"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-12 0"
+    },
+    {
+     "d": "M-12 -14L-12 14"
+    },
+    {
+     "d": "M-6 -16L-6 -6"
+    },
+    {
+     "d": "M-6 -4L-6 4"
+    },
+    {
+     "d": "M-6 6L-6 16"
+    },
+    {
+     "d": "M-6 -11L20 -11L20 -40"
+    },
+    {
+     "d": "M-6 11L20 11L20 40"
+    },
+    {
+     "d": "M-6 0L0 0"
+    },
+    {
+     "d": "M0 0L-6 -3L-6 3L0 0"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "os": {
+   "name": "Oscilloscope",
+   "prefix": "OSC",
+   "group": "Instruments",
+   "keywords": "scope oscilloscope waveform",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20
+    },
+    {
+     "x": -40,
+     "y": 20
+    }
+   ],
+   "bbox": [
+    -54,
+    -64,
+    174,
+    64
+   ],
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5m",
+    "f": "auto"
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Time/div",
+     "unit": "s",
+     "default": "5m"
+    },
+    {
+     "key": "f",
+     "name": "Volts/div",
+     "unit": "V",
+     "default": "auto"
+    }
+   ],
+   "labelUnit": "s/div",
+   "state": [
+    "ta",
+    "tb"
+   ],
+   "symbol": [
+    {
+     "widget": "scope"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "sp": {
+   "name": "SPDT switch",
+   "prefix": "SW",
+   "group": "Switches",
+   "keywords": "spdt changeover",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": -20
+    },
+    {
+     "x": 40,
+     "y": 20
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "toggle": "latch",
+   "state": [
+    "on"
+   ],
+   "dcPath": [
+    {
+     "when": {
+      "state": "on",
+      "eq": 1
+     },
+     "join": [
+      [
+       0,
+       2
+      ]
+     ]
+    },
+    {
+     "when": {
+      "state": "on",
+      "eq": 0
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "shortPath": [
+    {
+     "when": {
+      "state": "on",
+      "eq": 1
+     },
+     "join": [
+      [
+       0,
+       2
+      ]
+     ]
+    },
+    {
+     "when": {
+      "state": "on",
+      "eq": 0
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-14 0"
+    },
+    {
+     "d": "M30 -20L40 -20"
+    },
+    {
+     "d": "M30 20L40 20"
+    },
+    {
+     "d": "M-14 0L30 -18",
+     "when": {
+      "state": "on",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M-14 0L30 18",
+     "when": {
+      "state": "on",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "and": {
+   "name": "AND gate",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "gate logic",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "A"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "B"
+    },
+    {
+     "x": 40,
+     "y": 0,
+     "label": "Y"
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-20 -20"
+    },
+    {
+     "d": "M-40 20L-20 20"
+    },
+    {
+     "d": "M26 0L40 0"
+    },
+    {
+     "d": "M-20 -26L-20 26L0 26A0 0 26 1.5708 -1.5708 1L-20 -26"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "or": {
+   "name": "OR gate",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "gate logic",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "A"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "B"
+    },
+    {
+     "x": 40,
+     "y": 0,
+     "label": "Y"
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-20 -20"
+    },
+    {
+     "d": "M-40 20L-20 20"
+    },
+    {
+     "d": "M28 0L40 0"
+    },
+    {
+     "d": "M-20 -26Q14 -26 28 0Q14 26 -20 26Q-8 0 -20 -26"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "not": {
+   "name": "NOT gate",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "gate logic inverter",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0,
+     "label": "A"
+    },
+    {
+     "x": 40,
+     "y": 0,
+     "label": "Y"
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       1,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-14 0"
+    },
+    {
+     "d": "M-14 -14L-14 14L14 0L-14 -14"
+    },
+    {
+     "d": "M21 0A17 0 4 0 6.2832 0"
+    },
+    {
+     "d": "M21 0L40 0"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "mo": {
+   "name": "DC Motor",
+   "prefix": "MOT",
+   "group": "Loads",
+   "keywords": "motor",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "12",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Rated voltage",
+     "unit": "V",
+     "default": "12"
+    },
+    {
+     "key": "p",
+     "name": "Armature R",
+     "unit": "Ω",
+     "default": "2"
+    }
+   ],
+   "labelUnit": "V",
+   "state": [
+    "ang",
+    "w"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-16 0"
+    },
+    {
+     "d": "M16 0L40 0"
+    },
+    {
+     "d": "M16 0A0 0 16 0 6.2832 0"
+    },
+    {
+     "d": "M7 0L14 0",
+     "spin": "ang"
+    },
+    {
+     "d": "M-3.4976 6.0636L-6.9952 12.1271",
+     "spin": "ang"
+    },
+    {
+     "d": "M-3.5048 -6.0594L-7.0096 -12.1188",
+     "spin": "ang"
+    }
+   ],
+   "centerText": {
+    "text": "M",
+    "font": "bold 14px",
+    "dy": 5
+   },
+   "valueFormat": "motor"
+  },
+  "sg": {
+   "name": "Signal Gen",
+   "prefix": "FG",
+   "group": "Sources",
+   "keywords": "function generator clock pulse square triangle",
+   "pins": [
+    {
+     "x": 0,
+     "y": -40
+    },
+    {
+     "x": 0,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": true,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": "1k"
+   },
+   "params": [
+    {
+     "key": "k",
+     "name": "Waveform",
+     "unit": "",
+     "default": "sine",
+     "options": [
+      "sine",
+      "square",
+      "triangle",
+      "sawtooth"
+     ]
+    },
+    {
+     "key": "v",
+     "name": "Amplitude",
+     "unit": "V",
+     "default": "5"
+    },
+    {
+     "key": "f",
+     "name": "Frequency",
+     "unit": "Hz",
+     "default": "1k"
+    },
+    {
+     "key": "p",
+     "name": "Offset",
+     "unit": "V",
+     "default": "0"
+    },
+    {
+     "key": "q",
+     "name": "Duty",
+     "unit": "%",
+     "default": "50"
+    },
+    {
+     "key": "s",
+     "name": "Series R",
+     "unit": "Ω",
+     "default": "0"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M0 -40L0 -16"
+    },
+    {
+     "d": "M0 16L0 40"
+    },
+    {
+     "d": "M16 0A0 0 16 0 6.2832 0"
+    },
+    {
+     "d": "M-9 0C-5 -12 -1 -12 0 0C1 12 5 12 9 0",
+     "when": {
+      "param": "k",
+      "in": [
+       "sine"
+      ]
+     }
+    },
+    {
+     "d": "M-9 4L-9 -4L0 -4L0 4L9 4",
+     "when": {
+      "param": "k",
+      "in": [
+       "square"
+      ]
+     }
+    },
+    {
+     "d": "M-9 3L-4 -5L4 5L9 -3",
+     "when": {
+      "param": "k",
+      "in": [
+       "triangle"
+      ]
+     }
+    },
+    {
+     "d": "M-9 4L0 -4L0 4L9 -4",
+     "when": {
+      "param": "k",
+      "in": [
+       "sawtooth"
+      ]
+     }
+    }
+   ],
+   "valueFormat": "value",
+   "valueSuffix": [
+    {
+     "key": "f",
+     "unit": "Hz"
+    }
+   ]
+  },
+  "sd": {
+   "name": "Schottky",
+   "prefix": "D",
+   "group": "Diodes",
+   "keywords": "schottky",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "limits": [
+    {
+     "q": "avgI",
+     "warn": 2,
+     "err": 3,
+     "msg": "overcurrent ",
+     "unit": "A"
+    },
+    {
+     "q": "peakI",
+     "warn": 20,
+     "err": 40,
+     "msg": "surge ",
+     "unit": "A"
+    },
+    {
+     "q": "peakV",
+     "warn": 32,
+     "err": 40,
+     "msg": "reverse breakdown ",
+     "unit": "V"
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-8 0"
+    },
+    {
+     "d": "M8 0L40 0"
+    },
+    {
+     "d": "M-8 -10L8 0L-8 10L-8 -10"
+    },
+    {
+     "d": "M8 -10L8 10"
+    },
+    {
+     "d": "M8 -10L4 -7"
+    },
+    {
+     "d": "M8 10L12 7"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "fu": {
+   "name": "Fuse",
+   "prefix": "F",
+   "group": "Passive",
+   "keywords": "fuse protection",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "1",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Rating",
+     "unit": "A",
+     "default": "1"
+    }
+   ],
+   "labelUnit": "A",
+   "state": [
+    "bl"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "shortPath": [
+    {
+     "when": {
+      "state": "bl",
+      "eq": 0
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-20 0"
+    },
+    {
+     "d": "M20 0L40 0"
+    },
+    {
+     "d": "M-20 -6L20 -6L20 6L-20 6L-20 -6"
+    },
+    {
+     "d": "M-20 0L20 0",
+     "when": {
+      "state": "bl",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M-20 0L-6 0",
+     "when": {
+      "state": "bl",
+      "eq": 1
+     }
+    },
+    {
+     "d": "M6 0L20 0",
+     "when": {
+      "state": "bl",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "rl": {
+   "name": "Relay",
+   "prefix": "K",
+   "group": "Switches",
+   "keywords": "relay coil contact",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20
+    },
+    {
+     "x": -40,
+     "y": 20
+    },
+    {
+     "x": 40,
+     "y": -20
+    },
+    {
+     "x": 40,
+     "y": 20
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Pull-in voltage",
+     "unit": "V",
+     "default": "5"
+    },
+    {
+     "key": "p",
+     "name": "Coil R",
+     "unit": "Ω",
+     "default": "100"
+    }
+   ],
+   "labelUnit": "V",
+   "state": [
+    "on"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    },
+    {
+     "when": {
+      "state": "on",
+      "eq": 1
+     },
+     "join": [
+      [
+       2,
+       3
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-18 -20"
+    },
+    {
+     "d": "M-40 20L-18 20"
+    },
+    {
+     "d": "M-18 -26L-6 -26L-6 26L-18 26L-18 -26"
+    },
+    {
+     "d": "M-18 -12L-6 -4"
+    },
+    {
+     "d": "M40 -20L22 -20"
+    },
+    {
+     "d": "M40 20L22 20"
+    },
+    {
+     "d": "M22 -20L14 12",
+     "when": {
+      "state": "on",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M22 -20L22 20",
+     "when": {
+      "state": "on",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "nand": {
+   "name": "NAND gate",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "gate logic",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "A"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "B"
+    },
+    {
+     "x": 40,
+     "y": 0,
+     "label": "Y"
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-20 -20"
+    },
+    {
+     "d": "M-40 20L-20 20"
+    },
+    {
+     "d": "M32 0L40 0"
+    },
+    {
+     "d": "M32 0A29 0 3 0 6.2832 0"
+    },
+    {
+     "d": "M-20 -26L-20 26L0 26A0 0 26 1.5708 -1.5708 1L-20 -26"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "nor": {
+   "name": "NOR gate",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "gate logic",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "A"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "B"
+    },
+    {
+     "x": 40,
+     "y": 0,
+     "label": "Y"
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-20 -20"
+    },
+    {
+     "d": "M-40 20L-20 20"
+    },
+    {
+     "d": "M32 0L40 0"
+    },
+    {
+     "d": "M32 0A29 0 3 0 6.2832 0"
+    },
+    {
+     "d": "M-20 -26Q14 -26 28 0Q14 26 -20 26Q-8 0 -20 -26"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "xor": {
+   "name": "XOR gate",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "gate logic",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "A"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "B"
+    },
+    {
+     "x": 40,
+     "y": 0,
+     "label": "Y"
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-20 -20"
+    },
+    {
+     "d": "M-40 20L-20 20"
+    },
+    {
+     "d": "M28 0L40 0"
+    },
+    {
+     "d": "M-25 -26L-15 0L-25 26"
+    },
+    {
+     "d": "M-20 -26Q14 -26 28 0Q14 26 -20 26Q-8 0 -20 -26"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "ldr": {
+   "name": "LDR (light)",
+   "prefix": "LDR",
+   "group": "Passive",
+   "keywords": "photoresistor light sensor",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "drawExtent": {
+    "circle": {
+     "r": 26
+    }
+   },
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "100k",
+    "f": "50"
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Dark resistance",
+     "unit": "Ω",
+     "default": "100k"
+    },
+    {
+     "key": "f",
+     "name": "Light",
+     "unit": "%",
+     "default": "50"
+    }
+   ],
+   "labelUnit": "Ω",
+   "live": {
+    "key": "f",
+    "min": 0,
+    "max": 100,
+    "poke": "rv",
+    "derived": "ldr"
+   },
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-20 0L-15 -8L-5 8L5 -8L15 8L20 0L40 0"
+    },
+    {
+     "d": "M26 0A0 0 26 0 6.2832 0"
+    },
+    {
+     "d": "M-34 -30L-22 -20"
+    },
+    {
+     "d": "M-22 -20L-27 -21"
+    },
+    {
+     "d": "M-22 -20L-23 -25"
+    },
+    {
+     "d": "M-24 -34L-12 -24"
+    },
+    {
+     "d": "M-12 -24L-17 -25"
+    },
+    {
+     "d": "M-12 -24L-13 -29"
+    }
+   ],
+   "valueFormat": "value",
+   "valueSuffix": [
+    {
+     "key": "f",
+     "unit": "%"
+    }
+   ]
+  },
+  "ntc": {
+   "name": "NTC thermistor",
+   "prefix": "TH",
+   "group": "Passive",
+   "keywords": "thermistor temperature sensor",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "drawExtent": {
+    "circle": {
+     "r": 26
+    }
+   },
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "10k",
+    "f": "25"
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "R at 25°C",
+     "unit": "Ω",
+     "default": "10k"
+    },
+    {
+     "key": "f",
+     "name": "Temperature",
+     "unit": "°C",
+     "default": "25"
+    }
+   ],
+   "labelUnit": "Ω",
+   "live": {
+    "key": "f",
+    "min": -20,
+    "max": 150,
+    "poke": "rv",
+    "derived": "ntc"
+   },
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-20 0L-15 -8L-5 8L5 -8L15 8L20 0L40 0"
+    },
+    {
+     "d": "M26 0A0 0 26 0 6.2832 0"
+    },
+    {
+     "d": "M-26 18L26 -18"
+    },
+    {
+     "d": "M26 -18L26 -24"
+    }
+   ],
+   "valueFormat": "value",
+   "valueSuffix": [
+    {
+     "key": "f",
+     "unit": "°C"
+    }
+   ]
+  },
+  "nb": {
+   "name": "Push-to-break",
+   "prefix": "SW",
+   "group": "Switches",
+   "keywords": "normally closed push break",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "toggle": "momentary",
+   "state": [
+    "on"
+   ],
+   "dcPath": [
+    {
+     "when": {
+      "state": "on",
+      "eq": 0
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "shortPath": [
+    {
+     "when": {
+      "state": "on",
+      "eq": 0
+     },
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-12 0"
+    },
+    {
+     "d": "M12 0L40 0"
+    },
+    {
+     "d": "M-12 0L12 0",
+     "when": {
+      "state": "on",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M-10 -4L10 -4",
+     "when": {
+      "state": "on",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M0 -4L0 -12",
+     "when": {
+      "state": "on",
+      "eq": 0
+     }
+    },
+    {
+     "d": "M-10 -14L10 -14",
+     "when": {
+      "state": "on",
+      "eq": 1
+     }
+    },
+    {
+     "d": "M0 -14L0 -22",
+     "when": {
+      "state": "on",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "dff": {
+   "name": "D flip-flop",
+   "prefix": "FF",
+   "group": "ICs & logic",
+   "keywords": "flip flop latch memory divider",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "D"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "CK"
+    },
+    {
+     "x": 40,
+     "y": -20,
+     "label": "Q",
+     "optional": true
+    },
+    {
+     "x": 40,
+     "y": 20,
+     "label": "Q'",
+     "optional": true
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "state": [
+    "st"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ],
+      [
+       3,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-24 -20"
+    },
+    {
+     "d": "M-40 20L-24 20"
+    },
+    {
+     "d": "M24 -20L40 -20"
+    },
+    {
+     "d": "M32 20L40 20"
+    },
+    {
+     "d": "M-24 -30L24 -30L24 30L-24 30L-24 -30"
+    },
+    {
+     "d": "M-24 12L-14 20L-24 28"
+    },
+    {
+     "d": "M32 20A28 20 4 0 6.2832 0"
+    },
+    {
+     "d": "M8 -20A4 -20 4 0 6.2832 0",
+     "when": {
+      "state": "st",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "reg": {
+   "name": "Regulator",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "voltage regulator 7805 ldo",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "IN"
+    },
+    {
+     "x": 0,
+     "y": 40,
+     "label": "GND"
+    },
+    {
+     "x": 40,
+     "y": -20,
+     "label": "OUT"
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Output voltage",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-24 -20"
+    },
+    {
+     "d": "M24 -20L40 -20"
+    },
+    {
+     "d": "M0 20L0 40"
+    },
+    {
+     "d": "M-24 -30L24 -30L24 20L-24 20L-24 -30"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "br": {
+   "name": "Bridge rectifier",
+   "prefix": "BR",
+   "group": "Diodes",
+   "keywords": "bridge rectifier full wave",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20
+    },
+    {
+     "x": -40,
+     "y": 20
+    },
+    {
+     "x": 40,
+     "y": -20
+    },
+    {
+     "x": 40,
+     "y": 20
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       2
+      ],
+      [
+       1,
+       2
+      ],
+      [
+       3,
+       0
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-24 -20"
+    },
+    {
+     "d": "M-40 20L-24 20"
+    },
+    {
+     "d": "M24 -20L40 -20"
+    },
+    {
+     "d": "M24 20L40 20"
+    },
+    {
+     "d": "M-24 -30L24 -30L24 30L-24 30L-24 -30"
+    },
+    {
+     "d": "M0 -22L18 0L0 22L-18 0L0 -22"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "sol": {
+   "name": "Solar cell",
+   "prefix": "PV",
+   "group": "Sources",
+   "keywords": "solar photovoltaic panel",
+   "pins": [
+    {
+     "x": 0,
+     "y": -40
+    },
+    {
+     "x": 0,
+     "y": 40
+    }
+   ],
+   "bbox": "auto",
+   "drawExtent": {
+    "circle": {
+     "r": 24
+    }
+   },
+   "nonlinear": true,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "6",
+    "f": "80"
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Open-circuit V",
+     "unit": "V",
+     "default": "6"
+    },
+    {
+     "key": "p",
+     "name": "Short-circuit I",
+     "unit": "A",
+     "default": "0.1"
+    },
+    {
+     "key": "f",
+     "name": "Light",
+     "unit": "%",
+     "default": "80"
+    }
+   ],
+   "labelUnit": "V",
+   "live": {
+    "key": "f",
+    "min": 0,
+    "max": 100,
+    "poke": "pp",
+    "scale": 0.01
+   },
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M0 -40L0 -6"
+    },
+    {
+     "d": "M0 6L0 40"
+    },
+    {
+     "d": "M-12 -6L12 -6"
+    },
+    {
+     "d": "M-6 6L6 6"
+    },
+    {
+     "d": "M24 0A0 0 24 0 6.2832 0"
+    },
+    {
+     "d": "M-36 -26L-28 -18"
+    },
+    {
+     "d": "M-28 -18L-33 -19"
+    },
+    {
+     "d": "M-28 -18L-29 -23"
+    },
+    {
+     "d": "M-32 -34L-24 -26"
+    },
+    {
+     "d": "M-24 -26L-29 -27"
+    },
+    {
+     "d": "M-24 -26L-25 -31"
+    }
+   ],
+   "valueFormat": "value",
+   "valueSuffix": [
+    {
+     "key": "f",
+     "unit": "%"
+    }
+   ]
+  },
+  "ctr": {
+   "name": "4-bit counter",
+   "prefix": "CTR",
+   "group": "ICs & logic",
+   "keywords": "counter binary digital",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "CK"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "RST",
+     "optional": true
+    },
+    {
+     "x": 40,
+     "y": -40,
+     "label": "Q0",
+     "optional": true
+    },
+    {
+     "x": 40,
+     "y": -20,
+     "label": "Q1",
+     "optional": true
+    },
+    {
+     "x": 40,
+     "y": 20,
+     "label": "Q2",
+     "optional": true
+    },
+    {
+     "x": 40,
+     "y": 40,
+     "label": "Q3",
+     "optional": true
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "state": [
+    "cnt"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ],
+      [
+       3,
+       "gnd"
+      ],
+      [
+       4,
+       "gnd"
+      ],
+      [
+       5,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-24 -20"
+    },
+    {
+     "d": "M-40 20L-24 20"
+    },
+    {
+     "d": "M24 -40L40 -40"
+    },
+    {
+     "d": "M24 -20L40 -20"
+    },
+    {
+     "d": "M24 20L40 20"
+    },
+    {
+     "d": "M24 40L40 40"
+    },
+    {
+     "d": "M-24 -50L24 -50L24 50L-24 50L-24 -50"
+    },
+    {
+     "d": "M-24 -28L-14 -20L-24 -12"
+    },
+    {
+     "d": "M20.5 -40A18 -40 2.5 0 6.2832 0",
+     "when": {
+      "state": "cnt",
+      "bit": 0
+     }
+    },
+    {
+     "d": "M20.5 -20A18 -20 2.5 0 6.2832 0",
+     "when": {
+      "state": "cnt",
+      "bit": 1
+     }
+    },
+    {
+     "d": "M20.5 20A18 20 2.5 0 6.2832 0",
+     "when": {
+      "state": "cnt",
+      "bit": 2
+     }
+    },
+    {
+     "d": "M20.5 40A18 40 2.5 0 6.2832 0",
+     "when": {
+      "state": "cnt",
+      "bit": 3
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "bz": {
+   "name": "Buzzer",
+   "prefix": "BZ",
+   "group": "Loads",
+   "keywords": "buzzer speaker sound beep",
+   "pins": [
+    {
+     "x": -40,
+     "y": 0
+    },
+    {
+     "x": 40,
+     "y": 0
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "100",
+    "f": "2k"
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "Coil resistance",
+     "unit": "Ω",
+     "default": "100"
+    },
+    {
+     "key": "f",
+     "name": "Tone",
+     "unit": "Hz",
+     "default": "2k"
+    }
+   ],
+   "labelUnit": "Ω",
+   "state": [
+    "bv"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 0L-14 0"
+    },
+    {
+     "d": "M14 0L40 0"
+    },
+    {
+     "d": "M-14 -6L-6 -6L4 -14L4 14L-6 6L-14 6L-14 -6"
+    },
+    {
+     "d": "M12 -8A6 0 10 -0.8 0.8 0"
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "tm": {
+   "name": "555 timer",
+   "prefix": "U",
+   "group": "ICs & logic",
+   "keywords": "555 ne555 timer astable monostable oscillator pulse blink",
+   "pins": [
+    {
+     "x": 0,
+     "y": -60
+    },
+    {
+     "x": 0,
+     "y": 60
+    },
+    {
+     "x": -40,
+     "y": -20
+    },
+    {
+     "x": -40,
+     "y": 20
+    },
+    {
+     "x": 40,
+     "y": 20
+    },
+    {
+     "x": 40,
+     "y": -20
+    },
+    {
+     "x": -40,
+     "y": -40,
+     "optional": true
+    },
+    {
+     "x": -40,
+     "y": 40,
+     "optional": true
+    }
+   ],
+   "bbox": [
+    -54,
+    -74,
+    54,
+    74
+   ],
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": null,
+    "f": null
+   },
+   "params": [],
+   "labelUnit": "",
+   "dcPath": [
+    {
+     "join": [
+      [
+       0,
+       1
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       5,
+       "gnd"
+      ],
+      [
+       4,
+       1
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -40L-28 -40"
+    },
+    {
+     "d": "M-40 -20L-28 -20"
+    },
+    {
+     "d": "M-40 20L-28 20"
+    },
+    {
+     "d": "M-40 40L-28 40"
+    },
+    {
+     "d": "M28 -20L40 -20"
+    },
+    {
+     "d": "M28 20L40 20"
+    },
+    {
+     "d": "M0 -60L0 -54"
+    },
+    {
+     "d": "M0 54L0 60"
+    },
+    {
+     "d": "M-28 -54L28 -54L28 54L-28 54L-28 -54"
+    }
+   ],
+   "pinText": [
+    {
+     "text": "RST",
+     "x": -15,
+     "y": -40,
+     "size": 8,
+     "bold": false
+    },
+    {
+     "text": "TRG",
+     "x": -15,
+     "y": -20,
+     "size": 8,
+     "bold": false
+    },
+    {
+     "text": "THR",
+     "x": -15,
+     "y": 20,
+     "size": 8,
+     "bold": false
+    },
+    {
+     "text": "CTL",
+     "x": -15,
+     "y": 40,
+     "size": 8,
+     "bold": false
+    },
+    {
+     "text": "OUT",
+     "x": 15,
+     "y": -20,
+     "size": 8,
+     "bold": false
+    },
+    {
+     "text": "DIS",
+     "x": 15,
+     "y": 20,
+     "size": 8,
+     "bold": false
+    },
+    {
+     "text": "VCC",
+     "x": 0,
+     "y": -46,
+     "size": 8,
+     "bold": false
+    },
+    {
+     "text": "GND",
+     "x": 0,
+     "y": 47,
+     "size": 8,
+     "bold": false
+    },
+    {
+     "text": "555",
+     "x": 0,
+     "y": 0,
+     "size": 13,
+     "bold": true
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "jk": {
+   "name": "JK flip-flop",
+   "prefix": "FF",
+   "group": "ICs & logic",
+   "keywords": "flip flop latch memory toggle",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "J"
+    },
+    {
+     "x": -40,
+     "y": 0,
+     "label": "CK"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "K"
+    },
+    {
+     "x": 40,
+     "y": -20,
+     "label": "Q",
+     "optional": true
+    },
+    {
+     "x": 40,
+     "y": 20,
+     "label": "Q'",
+     "optional": true
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "state": [
+    "st"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       3,
+       "gnd"
+      ],
+      [
+       4,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-24 -20"
+    },
+    {
+     "d": "M-40 0L-24 0"
+    },
+    {
+     "d": "M-40 20L-24 20"
+    },
+    {
+     "d": "M24 -20L40 -20"
+    },
+    {
+     "d": "M24 20L40 20"
+    },
+    {
+     "d": "M-24 -30L24 -30L24 30L-24 30L-24 -30"
+    },
+    {
+     "d": "M-24 -8L-14 0L-24 8"
+    },
+    {
+     "d": "M8 -20A4 -20 4 0 6.2832 0",
+     "when": {
+      "state": "st",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "srf": {
+   "name": "SR flip-flop",
+   "prefix": "FF",
+   "group": "ICs & logic",
+   "keywords": "flip flop latch set reset memory",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "S"
+    },
+    {
+     "x": -40,
+     "y": 0,
+     "label": "CK"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "R"
+    },
+    {
+     "x": 40,
+     "y": -20,
+     "label": "Q",
+     "optional": true
+    },
+    {
+     "x": 40,
+     "y": 20,
+     "label": "Q'",
+     "optional": true
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "state": [
+    "st"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       3,
+       "gnd"
+      ],
+      [
+       4,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-24 -20"
+    },
+    {
+     "d": "M-40 0L-24 0"
+    },
+    {
+     "d": "M-40 20L-24 20"
+    },
+    {
+     "d": "M24 -20L40 -20"
+    },
+    {
+     "d": "M24 20L40 20"
+    },
+    {
+     "d": "M-24 -30L24 -30L24 30L-24 30L-24 -30"
+    },
+    {
+     "d": "M-24 -8L-14 0L-24 8"
+    },
+    {
+     "d": "M8 -20A4 -20 4 0 6.2832 0",
+     "when": {
+      "state": "st",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  },
+  "tf": {
+   "name": "T flip-flop",
+   "prefix": "FF",
+   "group": "ICs & logic",
+   "keywords": "flip flop toggle divider frequency",
+   "pins": [
+    {
+     "x": -40,
+     "y": -20,
+     "label": "T"
+    },
+    {
+     "x": -40,
+     "y": 20,
+     "label": "CK"
+    },
+    {
+     "x": 40,
+     "y": -20,
+     "label": "Q",
+     "optional": true
+    },
+    {
+     "x": 40,
+     "y": 20,
+     "label": "Q'",
+     "optional": true
+    }
+   ],
+   "bbox": "auto",
+   "nonlinear": false,
+   "rowSource": false,
+   "tolerance": false,
+   "defaults": {
+    "v": "5",
+    "f": null
+   },
+   "params": [
+    {
+     "key": "v",
+     "name": "High level",
+     "unit": "V",
+     "default": "5"
+    }
+   ],
+   "labelUnit": "V",
+   "state": [
+    "st"
+   ],
+   "dcPath": [
+    {
+     "join": [
+      [
+       2,
+       "gnd"
+      ],
+      [
+       3,
+       "gnd"
+      ]
+     ]
+    }
+   ],
+   "symbol": [
+    {
+     "d": "M-40 -20L-24 -20"
+    },
+    {
+     "d": "M-40 20L-24 20"
+    },
+    {
+     "d": "M24 -20L40 -20"
+    },
+    {
+     "d": "M24 20L40 20"
+    },
+    {
+     "d": "M-24 -30L24 -30L24 30L-24 30L-24 -30"
+    },
+    {
+     "d": "M-24 12L-14 20L-24 28"
+    },
+    {
+     "d": "M8 -20A4 -20 4 0 6.2832 0",
+     "when": {
+      "state": "st",
+      "eq": 1
+     }
+    }
+   ],
+   "valueFormat": "value"
+  }
+ }
+}
