@@ -60,7 +60,7 @@ fn led_is(p: &str) -> f64 {
 }
 
 /// Deterministic pseudo-random in [-1,1) for component tolerance.
-fn rnd(seed: u64, i: usize) -> f64 {
+pub fn rnd(seed: u64, i: usize) -> f64 {
     let mut z = seed.wrapping_add((i as u64 + 1).wrapping_mul(0x9E3779B97F4A7C15));
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
@@ -76,7 +76,7 @@ pub fn make_part(c: &Component, src: usize, nd: Vec<usize>, seed: u64) -> Part {
     let mut fr = s(&c.f);
     if !(fr > 0.0) { fr = 50.0; }
     let (pn, qn, sn) = (s(&c.p), s(&c.q), s(&c.s));
-    if matches!(t, Kind::R | Kind::L | Kind::C) && pn > 0.0 { val *= 1.0 + pn / 100.0 * rnd(seed, src); }
+    if matches!(t, Kind::R | Kind::L | Kind::C) && pn > 0.0 { val *= 1.0 + pn / 100.0 * rnd(seed, c.si.unwrap_or(src)); }
     let wave = match c.k.as_deref() { Some("square") => Wave::Square, Some("triangle") => Wave::Triangle, Some("sawtooth") => Wave::Sawtooth, _ => Wave::Sine };
     let os = t == Kind::Os;
     let mut p = Part {

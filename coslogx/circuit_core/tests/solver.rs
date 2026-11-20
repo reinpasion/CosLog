@@ -11,7 +11,7 @@ impl B {
     fn pin(&self, i: usize, p: usize) -> (f64, f64) { self.c[i].pins()[p] }
     fn wire(&mut self, a: (f64, f64), b: (f64, f64)) { self.w.push(Wire { x1: a.0, y1: a.1, x2: b.0, y2: b.1 }); }
     fn conn(&mut self, a: usize, pa: usize, b: usize, pb: usize) { let (p, q) = (self.pin(a, pa), self.pin(b, pb)); self.wire(p, q); }
-    fn proj(&self) -> Project { Project { app: "CircuitLite".into(), ver: 1, c: self.c.clone(), w: self.w.clone(), view: None } }
+    fn proj(&self) -> Project { Project { app: "CircuitLite".into(), ver: 1, seed: None, c: self.c.clone(), w: self.w.clone(), view: None } }
 }
 
 #[test]

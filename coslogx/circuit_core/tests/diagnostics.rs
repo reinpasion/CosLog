@@ -8,7 +8,7 @@ impl B {
         self.c.push(c); self.c.len() - 1
     }
     fn conn(&mut self, a: usize, pa: usize, b: usize, pb: usize) { let (p, q) = (self.c[a].pins()[pa], self.c[b].pins()[pb]); self.w.push(Wire { x1: p.0, y1: p.1, x2: q.0, y2: q.1 }); }
-    fn proj(&self) -> Project { Project { app: "CircuitLite".into(), ver: 1, c: self.c.clone(), w: self.w.clone(), view: None } }
+    fn proj(&self) -> Project { Project { app: "CircuitLite".into(), ver: 1, seed: None, c: self.c.clone(), w: self.w.clone(), view: None } }
 }
 fn has(v: &[Diag], l: Level, s: &str) -> bool { v.iter().any(|d| d.level == l && d.msg.contains(s)) }
 

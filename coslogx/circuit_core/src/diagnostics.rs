@@ -4,6 +4,7 @@ use crate::engine::{FrameStats, Sim};
 use crate::kind::Kind;
 use crate::netlist::{build, groupize, Part};
 use crate::project::{Project, Wire};
+use crate::spec::{self, StateView};
 use crate::units::fm;
 use std::collections::{HashMap, HashSet};
 
@@ -24,44 +25,51 @@ impl Uf {
     fn find(&mut self, mut a: usize) -> usize { while self.0[a] != a { self.0[a] = self.0[self.0[a]]; a = self.0[a]; } a }
     fn union(&mut self, a: usize, b: usize) { let (x, y) = (self.find(a), self.find(b)); self.0[x] = y; }
 }
-fn name(p: &Project, i: usize) -> String { p.c[i].n.clone().unwrap_or_else(|| p.c[i].t.code().to_string()) }
-/// Pins that are allowed to float (outputs, optional controls).
-fn optional_pin(k: Kind, i: usize) -> bool {
-    (k == Kind::Dff && i > 1) || (k == Kind::Ctr && i > 0) || (k == Kind::Tm && i > 5) || (k == Kind::Tf && i > 1) || (matches!(k, Kind::Jk | Kind::Srf) && i > 2)
+fn name(p: &Project, i: usize) -> String { p.c[i].n.clone().filter(|n| !n.is_empty()).unwrap_or_else(|| p.c[i].t.code().to_string()) }
+/// Pins that are allowed to float (outputs, optional controls), from the spec pin flags.
+fn optional_pin(k: Kind, i: usize) -> bool { spec::part(k.code()).and_then(|p| p.pins.get(i)).map_or(false, |p| p.optional) }
+
+/// Part state seen by spec `when` clauses.
+pub struct PartView<'a>(pub &'a Part);
+impl StateView for PartView<'_> {
+    fn state(&self, key: &str) -> f64 {
+        let p = self.0;
+        match key { "on" => (p.on != 0) as u8 as f64, "bl" => p.bl as u8 as f64, "st" => p.st as u8 as f64, "qs" => p.qs as u8 as f64, "pc" => p.pc as u8 as f64,
+            "cnt" => p.cnt as f64, "av" => p.av, "gl" => p.gl, "w" => p.w, "ang" => p.ang, "hi" => (p.av > p.val) as u8 as f64, other => panic!("unsupported state {other}") }
+    }
+    fn value(&self) -> f64 { self.0.val }
+    fn param(&self, _: &str) -> Option<&str> { None }
+}
+/// Unions the nodes a part conducts DC between (spec `dcPath`).
+fn dc_join(uf: &mut Uf, c: &Part) {
+    let Some(s) = spec::part(c.kind.code()) else { return };
+    for (a, b) in spec::joins(s.dc_path, &PartView(c)) {
+        let n = |i: i8| if i < 0 { 0 } else { c.gnd[i as usize] };
+        uf.union(n(a), n(b));
+    }
+}
+/// Unions the nodes a part shorts together at low resistance (spec `shortPath`); returns whether it did.
+fn short_join(uf: &mut Uf, c: &Part) -> bool {
+    let Some(s) = spec::part(c.kind.code()) else { return false };
+    let j = spec::joins(s.short_path, &PartView(c));
+    for &(a, b) in &j { uf.union(c.gnd[a as usize], c.gnd[b as usize]); }
+    !j.is_empty()
 }
 
 // ------------------------------------------------------------------ static checks
 pub fn statics(proj: &Project, qs: f64) -> Vec<Diag> {
-    if proj.c.is_empty() { return vec![dg(Level::Info, "Place parts, wire them (click a pin to start a wire), add a Ground, then press Run.")]; }
-    let nl = build(proj, 1);
+    if proj.c.is_empty() { return vec![dg(Level::Info, spec::msg("empty", &[]))]; }
+    let nl = build(proj, proj.seed());
     let specs = groupize(&nl, qs);
     let n = nl.n_nodes;
     let mut o = vec![];
-    if !nl.has_ground { o.push(dg(Level::Error, "No Ground part: node voltages and meters have no reference. Add a Ground.")); }
+    if !nl.has_ground { o.push(dg(Level::Error, spec::msg("noGround", &[]))); }
     let (mut deg, mut uf) = (vec![0u32; n], Uf::new(n));
     for (i, c) in nl.parts.iter().enumerate() {
         let nd = &c.gnd; let t = c.kind;
         for &k in nd { deg[k] += 1; }
-        if matches!(t, Kind::Dc | Kind::Ac | Kind::Sg) && nd[0] == nd[1] { o.push(dg(Level::Error, format!("{} has both terminals on one node (shorted by wiring).", name(proj, i)))); }
-        use Kind::*;
-        if matches!(t, R | L | Dc | Ac | Sg | D | Sd | Led | Zd | Lamp | Mo | Am | Vm | Fu | Ldr | Ntc | Bz | Sol) || (matches!(t, Sw | Bt) && c.on != 0) || (t == Nb && c.on == 0) { uf.union(nd[0], nd[1]); }
-        else { match t {
-            Pot => { uf.union(nd[0], nd[2]); uf.union(nd[2], nd[1]); }
-            Sp => uf.union(nd[0], if c.on != 0 { nd[2] } else { nd[1] }),
-            Tr => { uf.union(nd[0], nd[1]); uf.union(nd[2], nd[3]); }
-            Rl => { uf.union(nd[0], nd[1]); if c.on != 0 { uf.union(nd[2], nd[3]); } }
-            Npn | Pnp => { uf.union(nd[1], nd[2]); uf.union(nd[0], nd[2]); }
-            Nm | Pm => uf.union(nd[1], nd[2]),
-            Op | And | Or | Nand | Nor | Xor => uf.union(nd[2], 0),
-            Not => uf.union(nd[1], 0),
-            Dff | Tf => { uf.union(nd[2], 0); uf.union(nd[3], 0); }
-            Jk | Srf => { uf.union(nd[3], 0); uf.union(nd[4], 0); }
-            Reg => uf.union(nd[2], nd[1]),
-            Tm => { uf.union(nd[0], nd[1]); uf.union(nd[7], nd[0]); uf.union(nd[6], nd[0]); uf.union(nd[5], 0); uf.union(nd[4], nd[1]); }
-            Br => { uf.union(nd[0], nd[2]); uf.union(nd[1], nd[2]); uf.union(nd[3], nd[0]); }
-            Ctr => for k in 2..6 { uf.union(nd[k], 0); },
-            _ => {}
-        } }
+        if spec::part(t.code()).map_or(false, |s| s.row_source) && nd[0] == nd[1] { o.push(dg(Level::Error, spec::msg("shortedTerminals", &[("name", &name(proj, i))]))); }
+        dc_join(&mut uf, c);
     }
     let (mut dang, mut fl): (Vec<String>, Vec<String>) = (vec![], vec![]);
     for (i, c) in nl.parts.iter().enumerate() {
@@ -72,17 +80,19 @@ pub fn statics(proj: &Project, qs: f64) -> Vec<Diag> {
             for &k in &c.gnd { if k != 0 && uf.find(k) != uf.find(0) && !fl.contains(&name(proj, i)) { fl.push(name(proj, i)); } }
         }
     }
-    if !dang.is_empty() { o.push(dg(Level::Warn, format!("Unconnected pin(s): {}{}. Wire them or remove the part.", dang.iter().take(6).cloned().collect::<Vec<_>>().join(", "), if dang.len() > 6 { "..." } else { "" }))); }
+    if !dang.is_empty() { let mx = spec::DANGLE_LIST_MAX as usize;
+        o.push(dg(Level::Warn, spec::msg("dangling", &[("list", &dang.iter().take(mx).cloned().collect::<Vec<_>>().join(", ")), ("more", if dang.len() > mx { "..." } else { "" })]))); }
     if nl.has_ground && !fl.is_empty() {
-        o.push(dg(Level::Warn, format!("No DC path to ground at: {}. Readings there are unreliable. Connect to ground or add a bleed resistor (capacitors and open switches block DC).", fl.iter().take(6).cloned().collect::<Vec<_>>().join(", "))));
+        o.push(dg(Level::Warn, spec::msg("noDcPath", &[("list", &fl.iter().take(spec::NO_DC_LIST_MAX as usize).cloned().collect::<Vec<_>>().join(", "))])));
     }
     let dt = specs.iter().map(|g| g.dt).fold(f64::MAX, f64::min); let dt = if specs.is_empty() { 1e-4 * qs } else { dt };
     let q = nl.parts.iter().any(|c| c.kind.nonlinear());
     let ns = specs.len();
     let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     let th = 1usize.max((cores.saturating_sub(1)).min(16).min(ns));
-    let farm = if ns > 0 { format!(", {} independent section{} on {} thread{}", ns, if ns > 1 { "s" } else { "" }, th, if th > 1 { "s" } else { "" }) } else { String::new() };
-    o.push(dg(Level::Info, format!("{} parts, {} nodes, step {}{}{}", proj.c.len(), n - 1, fm(dt, "s"), if q { ", Newton solver active" } else { "" }, farm)));
+    let farm = if ns > 0 { spec::msg("farm", &[("n", &ns.to_string()), ("s", if ns > 1 { "s" } else { "" }), ("w", &th.to_string()), ("s2", if th > 1 { "s" } else { "" })]) } else { String::new() };
+    let newton = if q { spec::msg("newton", &[]) } else { String::new() };
+    o.push(dg(Level::Info, spec::msg("info", &[("parts", &proj.c.len().to_string()), ("nodes", &(n - 1).to_string()), ("dt", &fm(dt, "s")), ("newton", &newton), ("farm", &farm)])));
     o
 }
 
@@ -112,48 +122,35 @@ impl DynAcc {
     }
 }
 
-fn lim(a: f64, w: f64, e: f64, m: &str, u: &str) -> Option<(Level, String)> {
-    if a > e { Some((Level::Error, format!("{m}{} exceeds {}", fm(a, u), fm(e, u)))) }
-    else if a > w { Some((Level::Warn, format!("{m}{} near limit {}", fm(a, u), fm(e, u)))) } else { None }
-}
-/// Per-part stress check against its ratings (peak/average current, voltage, power).
+/// Per-part stress check against its ratings, driven by the spec `limits` list.
 pub fn check_part(c: &Part) -> Option<(Level, String)> {
-    use Kind::*;
-    let (i, a, vm, p) = (c.pi, c.ia, c.pv, c.pw);
-    match c.kind {
-        R => { let rt = if c.qn > 0.0 { c.qn } else { 0.25 }; lim(p, rt * 0.75, rt, "overheating ", "W") }
-        Lamp => { let rt = if c.pn > 0.0 { c.pn } else { 0.5 }; lim(p, rt * 1.2, rt * 1.6, "overpowered ", "W") }
-        C => { let rt = if c.sn > 0.0 { c.sn } else { 50.0 }; lim(vm, rt * 0.8, rt, "overvoltage ", "V") }
-        L => lim(i, 3.0, 5.0, "overcurrent ", "A"),
-        Tr => lim(a, 2.0, 4.0, "winding overcurrent ", "A").or_else(|| lim(i, 20.0, 40.0, "winding surge ", "A")),
-        D => lim(a, 0.7, 1.0, "overcurrent ", "A").or_else(|| lim(i, 10.0, 30.0, "surge ", "A")).or_else(|| lim(vm, 80.0, 100.0, "reverse breakdown ", "V")),
-        Sd => lim(a, 2.0, 3.0, "overcurrent ", "A").or_else(|| lim(i, 20.0, 40.0, "surge ", "A")).or_else(|| lim(vm, 32.0, 40.0, "reverse breakdown ", "V")),
-        Led => lim(a, 0.025, 0.05, "overcurrent ", "A").or_else(|| lim(i, 0.15, 0.3, "surge ", "A")).or_else(|| lim(vm, 4.0, 6.0, "reverse voltage ", "V")),
-        Zd => lim(p, 0.4, 0.5, "overpowered ", "W"),
-        Npn | Pnp => lim(vm, 32.0, 40.0, "Vce ", "V").or_else(|| lim(a, 0.15, 0.4, "collector current ", "A")).or_else(|| lim(i, 0.6, 1.5, "surge ", "A")).or_else(|| lim(p, 0.4, 0.6, "dissipating ", "W")),
-        Nm | Pm => lim(vm, 48.0, 60.0, "Vds ", "V").or_else(|| lim(a, 1.5, 3.0, "drain current ", "A")).or_else(|| lim(i, 6.0, 12.0, "surge ", "A")).or_else(|| lim(p, 0.8, 1.2, "dissipating ", "W")),
-        _ if c.row.is_some() => if a > 15.0 { Some((Level::Error, format!("short circuit: supplying {}", fm(a, "A")))) } else { None },
-        Am => lim(a, 3.0, 10.0, "overload ", "A"),
-        Fu if c.bl => Some((Level::Warn, "blown (open)".into())),
-        _ => None,
+    let s = spec::part(c.kind.code())?;
+    let m = spec::Measured { peak_i: c.pi, avg_i: c.ia, peak_v: c.pv, power: c.pw };
+    let r = spec::Ratings { q: c.qn, p: c.pn, s: c.sn };
+    if let Some((err, msg, a, e, u)) = spec::eval_limits(s, &m, &r) {
+        let t = if err { "limitErr" } else { "limitWarn" };
+        return Some((if err { Level::Error } else { Level::Warn }, spec::msg(t, &[("msg", msg), ("value", &fm(a, u)), ("limit", &fm(e, u))])));
     }
+    if s.row_source { return c.row.filter(|_| c.ia > spec::SOURCE_SHORT_A).map(|_| (Level::Error, spec::msg("sourceShort", &[("i", &fm(c.ia, "A"))]))); }
+    if s.state.contains(&"bl") && c.bl { return Some((Level::Warn, spec::msg("fuseFault", &[]))); }
+    None
 }
 
 /// Runtime diagnostics + fault marking. `now` is wall-clock milliseconds; faults persist 3 s.
 pub fn dynamic(sim: &mut Sim, proj: &Project, faults: &mut Faults, acc: &DynAcc, qa: bool, qs: f64, now: f64) -> Vec<Diag> {
     let mut o = vec![];
-    if acc.fail > 0 { o.push(dg(Level::Error, format!("Solver did not converge in {} step(s) (last change {}). Try: series resistance on diodes/LEDs/sources, lower op-amp gain, check transistor polarity, or lower the speed.", acc.fail, fm(acc.md, "V")))); }
-    if acc.lag > 3 {
-        o.push(dg(Level::Warn, format!("Cannot keep real-time on this CPU, so the simulation runs slower than the speed setting. {}",
-            if qa { if qs > 1.0 { "Auto quality has coarsened the time step to keep up." } else { "" } } else { "Set Quality to Auto or Fast, or simplify the circuit." })));
+    if acc.fail > 0 { o.push(dg(Level::Error, spec::msg("noConverge", &[("n", &acc.fail.to_string()), ("md", &fm(acc.md, "V"))]))); }
+    if acc.lag as f64 > spec::LAG_WARN_FRAMES {
+        let hint = if qa { if qs > 1.0 { spec::msg("lagHintAuto", &[]) } else { String::new() } } else { spec::msg("lagHintManual", &[]) };
+        o.push(dg(Level::Warn, spec::msg("lag", &[("hint", &hint)])));
     }
-    if acc.mv > 1e3 { o.push(dg(Level::Error, format!("Node voltage reached {}: usually a floating node, a shorted ideal source, or a missing ground path.", fm(acc.mv, "V")))); }
+    if acc.mv > spec::NODE_VOLTAGE_ERR_V { o.push(dg(Level::Error, spec::msg("nodeVoltage", &[("v", &fm(acc.mv, "V"))]))); }
     for i in 0..proj.c.len() {
         let Some(p) = sim.part(i) else { continue };
         let n = name(proj, i);
-        if p.row.is_some() { let ix = sim.source_current(i).abs(); if ix > 20.0 { o.push(dg(Level::Error, format!("{n} supplies {}: probably a short circuit. Add series resistance.", fm(ix, "A")))); } }
-        if p.kind == Kind::Led && p.cur > 0.05 { o.push(dg(Level::Warn, format!("{n} carries {}: add a current-limiting resistor.", fm(p.cur, "A")))); }
-        if p.kind == Kind::Fu && p.bl { o.push(dg(Level::Info, format!("{n} has blown (open). Press Reset to replace it."))); }
+        if p.row.is_some() { let ix = sim.source_current(i).abs(); if ix > spec::SOURCE_RUNAWAY_A { o.push(dg(Level::Error, spec::msg("sourceRunaway", &[("name", &n), ("i", &fm(ix, "A"))]))); } }
+        if p.kind == Kind::Led && p.cur > spec::LED_WARN_A { o.push(dg(Level::Warn, spec::msg("ledCurrent", &[("name", &n), ("i", &fm(p.cur, "A"))]))); }
+        if p.kind == Kind::Fu && p.bl { o.push(dg(Level::Info, spec::msg("fuseBlown", &[("name", &n)]))); }
     }
     scan(sim, proj, faults, acc, now, &mut o);
     o
@@ -161,7 +158,7 @@ pub fn dynamic(sim: &mut Sim, proj: &Project, faults: &mut Faults, acc: &DynAcc,
 
 fn scan(sim: &mut Sim, proj: &Project, faults: &mut Faults, acc: &DynAcc, now: f64, o: &mut Vec<Diag>) {
     use Kind::*;
-    let hold = now + 3000.0;
+    let hold = now + spec::HOLD_MS;
     faults.comps.retain(|_, f| f.until >= now); faults.wires.retain(|_, f| f.until >= now);
     let n = sim.n_nodes; let nc = proj.c.len();
     let mut deg = vec![0u32; n];
@@ -172,7 +169,7 @@ fn scan(sim: &mut Sim, proj: &Project, faults: &mut Faults, acc: &DynAcc, now: f
         if matches!(p.kind, Gnd | Lg) { continue; }
         for (pi, &k) in p.gnd.iter().enumerate() {
             if k != 0 && deg[k] == 1 && !optional_pin(p.kind, pi) {
-                if faults.comps.get(&i).map_or(true, |f| f.level != Level::Error) { faults.comps.insert(i, Fault { level: Level::Warn, msg: format!("pin {} unconnected", pi + 1), pin: Some(pi), until: hold }); }
+                if faults.comps.get(&i).map_or(true, |f| f.level != Level::Error) { faults.comps.insert(i, Fault { level: Level::Warn, msg: spec::msg("pinFault", &[("n", &(pi + 1).to_string())]), pin: Some(pi), until: hold }); }
                 for (wi, wn) in sim.wire_nodes.iter().enumerate() { if *wn == Some(k) { faults.mark_w(wi, Level::Warn, hold); } }
             }
         }
@@ -181,9 +178,7 @@ fn scan(sim: &mut Sim, proj: &Project, faults: &mut Faults, acc: &DynAcc, now: f
     let mut uf = Uf::new(n); let mut low: Vec<usize> = vec![];
     for i in 0..nc {
         let Some(p) = sim.part(i) else { continue };
-        let nd = &p.gnd;
-        if (matches!(p.kind, Sw | Bt) && p.on != 0) || (p.kind == Nb && p.on == 0) || p.kind == Am || (p.kind == Fu && !p.bl) || (p.kind == R && p.val < 0.5) { uf.union(nd[0], nd[1]); low.push(i); }
-        else if p.kind == Sp { uf.union(nd[0], if p.on != 0 { nd[2] } else { nd[1] }); low.push(i); }
+        if short_join(&mut uf, p) { low.push(i); }
     }
     let wroot: Vec<Option<usize>> = sim.wire_nodes.iter().map(|w| w.map(|k| uf.find(k))).collect();
     for i in 0..nc {
@@ -191,8 +186,8 @@ fn scan(sim: &mut Sim, proj: &Project, faults: &mut Faults, acc: &DynAcc, now: f
         if p.row.is_none() || uf.find(p.gnd[0]) != uf.find(p.gnd[1]) { continue; }
         let rt = uf.find(p.gnd[0]);
         let via: Vec<usize> = low.iter().copied().filter(|&l| { let g0 = sim.part(l).unwrap().gnd[0]; uf.find(g0) == rt }).collect();
-        faults.mark_c(i, Level::Error, "short circuit", hold);
-        for &l in &via { faults.mark_c(l, Level::Error, "in short-circuit path", hold); }
+        faults.mark_c(i, Level::Error, &spec::msg("faultShort", &[]), hold);
+        for &l in &via { faults.mark_c(l, Level::Error, &spec::msg("faultPath", &[]), hold); }
         let touch = |w: &Wire, q: (f64, f64)| (w.x1, w.y1) == q || (w.x2, w.y2) == q || w.on_seg(q);
         let mut seen: HashSet<usize> = HashSet::new(); let mut fr: Vec<usize> = vec![];
         for q in proj.c[i].pins() { for (wi, w) in proj.w.iter().enumerate() { if touch(w, q) && wroot[wi] == Some(rt) && seen.insert(wi) { fr.push(wi); } } }
@@ -203,20 +198,20 @@ fn scan(sim: &mut Sim, proj: &Project, faults: &mut Faults, acc: &DynAcc, now: f
                 if !seen.contains(&vi) && wroot[vi] == Some(rt) && (touch(v, (w.x1, w.y1)) || touch(v, (w.x2, w.y2)) || touch(&w, (v.x1, v.y1)) || touch(&w, (v.x2, v.y2))) { seen.insert(vi); fr.push(vi); }
             }
         }
-        let through = if via.is_empty() { "wiring".to_string() } else { via.iter().map(|&l| name(proj, l)).collect::<Vec<_>>().join(", ") };
-        o.push(dg(Level::Error, format!("{} is short-circuited through {}. Marked in red on the schematic.", name(proj, i), through)));
+        let through = if via.is_empty() { spec::msg("shortWiring", &[]) } else { via.iter().map(|&l| name(proj, l)).collect::<Vec<_>>().join(", ") };
+        o.push(dg(Level::Error, spec::msg("shortTrace", &[("name", &name(proj, i)), ("via", &through)])));
     }
     // ratings
     for i in 0..nc {
         let Some(p) = sim.part(i) else { continue };
         if let Some((l, m)) = check_part(p) {
             faults.mark_c(i, l, &m, hold);
-            o.push(dg(l, format!("{}: {}.", name(proj, i), m)));
+            o.push(dg(l, spec::msg("partFault", &[("name", &name(proj, i)), ("msg", &m)])));
             if p.row.is_some() && l == Level::Error {
                 for (wi, wn) in sim.wire_nodes.iter().enumerate() { if let Some(k) = *wn { if k > 0 && (k == p.gnd[0] || k == p.gnd[1]) { faults.mark_w(wi, Level::Error, hold); } } }
             }
         }
     }
     for i in 0..nc { if let Some(p) = sim.part_mut(i) { p.pi = 0.0; p.pv = 0.0; } }
-    if acc.mv > 1e3 { for (wi, wn) in sim.wire_nodes.iter().enumerate() { if *wn == Some(acc.bn) { faults.mark_w(wi, Level::Error, hold); } } }
+    if acc.mv > spec::NODE_VOLTAGE_ERR_V { for (wi, wn) in sim.wire_nodes.iter().enumerate() { if *wn == Some(acc.bn) { faults.mark_w(wi, Level::Error, hold); } } }
 }

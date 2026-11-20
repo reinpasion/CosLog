@@ -14,17 +14,21 @@ pub struct LimitRef { pub key: &'static str, pub default: f64 }
 #[derive(Clone, Copy, Debug)]
 pub struct LimitSpec { pub q: &'static str, pub warn: f64, pub err: f64, pub msg: &'static str, pub unit: &'static str, pub rated: Option<LimitRef> }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WhenKind { State, Param }
+pub enum WhenKind { State, Param, Value }
 #[derive(Clone, Copy, Debug)]
-pub struct When { pub kind: WhenKind, pub key: &'static str, pub eq: Option<i64>, pub bit: Option<u8>, pub within: &'static [&'static str] }
+pub struct When { pub kind: WhenKind, pub key: &'static str, pub eq: Option<i64>, pub bit: Option<u8>, pub within: &'static [&'static str], pub value: Option<(bool, f64)> }
 #[derive(Clone, Copy, Debug)]
-pub struct SymLayer { pub d: &'static str, pub when: Option<When>, pub spin: bool, pub wiper: bool, pub widget: Option<&'static str> }
+pub struct SymLayer { pub d: &'static str, pub when: Option<When>, pub spin: bool, pub wiper: bool, pub widget: Option<&'static str>, pub fill: Option<&'static str>, pub fill_when: &'static [(When, &'static str)] }
+/// Joins node pins when `when` holds. Pin index `-1` is ground (node 0).
+#[derive(Clone, Copy, Debug)]
+pub struct PathRule { pub when: Option<When>, pub join: &'static [(i8, i8)] }
 #[derive(Clone, Copy, Debug)]
 pub struct PartSpec {
     pub code: &'static str, pub name: &'static str, pub prefix: Option<&'static str>, pub group: &'static str, pub keywords: &'static str,
     pub pins: &'static [PinSpec], pub bbox: Option<[f64; 4]>, pub nonlinear: bool, pub row_source: bool, pub tolerance: bool,
     pub params: &'static [ParamSpec], pub live: Option<LiveSpec>, pub state: &'static [&'static str],
     pub limits: &'static [LimitSpec], pub symbol: &'static [SymLayer],
+    pub dc_path: &'static [PathRule], pub short_path: &'static [PathRule], pub center_text: Option<&'static str>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/spec_gen.rs"));
@@ -48,4 +52,35 @@ pub fn eval_limits(p: &PartSpec, m: &Measured, r: &Ratings) -> Option<(bool, &'s
         if a > w { return Some((false, l.msg, a, e, l.unit)); }
     }
     None
+}
+
+/// Looks up a diagnostics message template and fills `{name}` placeholders.
+pub fn msg(key: &str, args: &[(&str, &str)]) -> String {
+    let t = MESSAGES.iter().find(|m| m.0 == key).unwrap_or_else(|| panic!("no message {key}")).1;
+    let mut s = t.to_string();
+    for (k, v) in args { s = s.replace(&format!("{{{k}}}"), v); }
+    s
+}
+
+/// Operating state a `when` clause is evaluated against.
+pub trait StateView { fn state(&self, key: &str) -> f64; fn value(&self) -> f64; fn param(&self, key: &str) -> Option<&str>; }
+
+impl When {
+    pub fn holds(&self, s: &dyn StateView) -> bool {
+        match self.kind {
+            WhenKind::Value => { let (lt, th) = self.value.unwrap(); if lt { s.value() < th } else { s.value() > th } }
+            WhenKind::Param => { let v = s.param(self.key); self.within.iter().any(|w| Some(*w) == v) }
+            WhenKind::State => {
+                let x = s.state(self.key);
+                if let Some(e) = self.eq { x == e as f64 } else if let Some(b) = self.bit { ((x as u64) >> b) & 1 == 1 } else { x != 0.0 }
+            }
+        }
+    }
+}
+
+/// Node pairs joined by a rule list for the given state (`-1` pin index is ground).
+pub fn joins(rules: &[PathRule], s: &dyn StateView) -> Vec<(i8, i8)> {
+    let mut v = vec![];
+    for r in rules { if r.when.map_or(true, |w| w.holds(s)) { v.extend_from_slice(r.join); } }
+    v
 }

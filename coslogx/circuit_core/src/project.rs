@@ -40,6 +40,8 @@ pub struct Component {
     #[serde(default, deserialize_with = "sn", skip_serializing_if = "Option::is_none")] pub q: Option<String>,
     #[serde(default, deserialize_with = "sn", skip_serializing_if = "Option::is_none")] pub s: Option<String>,
     #[serde(default, deserialize_with = "sn", skip_serializing_if = "Option::is_none")] pub k: Option<String>,
+    /// Position in the file as read (counting skipped parts); the tolerance index. Not saved.
+    #[serde(skip)] pub si: Option<usize>,
 }
 
 impl Component {
@@ -47,7 +49,7 @@ impl Component {
         let (v, f) = t.defaults();
         let mut c = Component { t, x, y, r: if t == Kind::Os { 0 } else { r }, m: 0, on: 0,
             v: v.map(Into::into), f: f.map(Into::into), n: None, no: None, vo: None,
-            u: None, p: None, q: None, s: None, k: None };
+            u: None, p: None, q: None, s: None, k: None, si: None };
         for pr in crate::params::params(t) { if let Some(d) = pr.def { c.set(pr.key, d.into()); } }
         c
     }
@@ -95,18 +97,68 @@ impl Default for View { fn default() -> Self { View { x: 60.0, y: 40.0, z: 1.0 }
 pub struct Project {
     #[serde(default = "app_name")] pub app: String,
     #[serde(default = "one")] pub ver: u32,
+    /// Tolerance seed; `None` means the default 0x5EED.
+    #[serde(default, skip_serializing_if = "default_seed", serialize_with = "seed_ser")] pub seed: Option<u64>,
     pub c: Vec<Component>,
     pub w: Vec<Wire>,
     #[serde(default, skip_serializing_if = "Option::is_none")] pub view: Option<View>,
 }
-fn app_name() -> String { "CircuitLite".into() }
+fn app_name() -> String { "CosLog".into() }
+pub const DEFAULT_SEED: u64 = 0x5EED;
+fn default_seed(v: &Option<u64>) -> bool { v.map_or(true, |x| x == DEFAULT_SEED) }
+const MAX_SAFE: u64 = 1 << 53;
+/// Seeds above 2^53 are written as strings so JSON readers do not lose precision.
+fn seed_ser<S: serde::Serializer>(v: &Option<u64>, s: S) -> Result<S::Ok, S::Error> {
+    match v { Some(x) if *x != DEFAULT_SEED && *x > MAX_SAFE => s.serialize_str(&x.to_string()), Some(x) if *x != DEFAULT_SEED => s.serialize_u64(*x), _ => s.serialize_none() }
+}
+fn parse_seed(v: &serde_json::Value) -> Option<u64> {
+    match v {
+        serde_json::Value::Number(n) => n.as_u64().or_else(|| n.as_f64().filter(|f| *f >= 0.0 && f.fract() == 0.0 && *f <= MAX_SAFE as f64).map(|f| f as u64)),
+        serde_json::Value::String(t) => { let t = t.trim(); match t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")) { Some(h) => u64::from_str_radix(h, 16).ok(), None => t.parse().ok() } }
+        _ => None,
+    }
+}
 fn one() -> u32 { 1 }
 
+/// Result of reading a project file: the project plus human-readable warnings (skipped parts, odd seed, ...).
+#[derive(Debug)]
+pub struct Loaded { pub project: Project, pub warnings: Vec<String> }
+
 impl Project {
-    pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
-        let mut p: Project = serde_json::from_str(s)?;
-        p.apply_defaults();
-        Ok(p)
+    pub fn seed(&self) -> u64 { self.seed.unwrap_or(DEFAULT_SEED) }
+    /// Reads a project, dropping any warnings. Use [`Project::load_json`] to see them.
+    pub fn from_json(s: &str) -> Result<Self, serde_json::Error> { Ok(Self::load_json(s)?.project) }
+    /// Reads a project file. Fails only when the text is not JSON or `c`/`w` are not arrays. Each part is
+    /// parsed on its own, so an unknown or malformed part is skipped with a warning and the rest loads.
+    pub fn load_json(s: &str) -> Result<Loaded, serde_json::Error> {
+        use serde_json::Value;
+        let v: Value = serde_json::from_str(s)?;
+        let bad = |m: &str| <serde_json::Error as de::Error>::custom(m.to_string());
+        let o = v.as_object().ok_or_else(|| bad("project must be an object"))?;
+        let cs = o.get("c").and_then(Value::as_array).ok_or_else(|| bad("`c` must be an array"))?;
+        let ws = o.get("w").and_then(Value::as_array).ok_or_else(|| bad("`w` must be an array"))?;
+        let mut warnings = vec![];
+        let app = o.get("app").and_then(Value::as_str).map(String::from).unwrap_or_else(app_name);
+        if !matches!(app.as_str(), "CosLog" | "CircuitLite") { warnings.push(format!("Unrecognised app \"{app}\"; loading anyway")); }
+        let ver = o.get("ver").and_then(Value::as_u64).unwrap_or(1) as u32;
+        if ver > 1 { warnings.push("This file was saved by a newer CosLog".into()); }
+        let seed = match o.get("seed") { None | Some(Value::Null) => None, Some(x) => match parse_seed(x) { Some(n) => Some(n), None => { warnings.push("Unreadable tolerance seed; using the default".into()); None } } };
+        let (mut c, mut skipped) = (vec![], vec![]);
+        for (i, e) in cs.iter().enumerate() {
+            match serde_json::from_value::<Component>(e.clone()) {
+                Ok(mut p) => { p.si = Some(i); if p.n.as_deref() == Some("") { p.n = None; } c.push(p); }
+                Err(_) => skipped.push(e.get("t").and_then(Value::as_str).unwrap_or("?").to_string()),
+            }
+        }
+        if !skipped.is_empty() {
+            let mut u: Vec<String> = vec![]; for k in &skipped { if !u.contains(k) { u.push(k.clone()); } }
+            warnings.push(format!("Skipped {} unknown part(s): {} (made with a newer or different CosLog)", skipped.len(), u.join(", ")));
+        }
+        let w: Vec<Wire> = serde_json::from_value(Value::Array(ws.clone()))?;
+        let view = o.get("view").and_then(|x| serde_json::from_value::<View>(x.clone()).ok());
+        let mut project = Project { app, ver, seed, c, w, view };
+        project.apply_defaults();
+        Ok(Loaded { project, warnings })
     }
     /// Like the JS `load()`: fields missing from a file take the part's defaults (value, frequency, tolerance, ...).
     pub fn apply_defaults(&mut self) {
@@ -124,7 +176,7 @@ impl Project {
 }
 
 impl Project {
-    pub fn empty() -> Self { Project { app: "CircuitLite".into(), ver: 1, c: vec![], w: vec![], view: None } }
+    pub fn empty() -> Self { Project { app: "CosLog".into(), ver: 1, seed: None, c: vec![], w: vec![], view: None } }
     /// One of every part type on a grid (used for the symbol gallery / visual checks).
     pub fn gallery() -> Self {
         let mut p = Project::empty();

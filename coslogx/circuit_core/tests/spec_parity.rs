@@ -97,13 +97,10 @@ fn spec_hash_is_16_hex_digits() {
 fn spec_hash_matches_fnv_of_file() {
     let raw = include_bytes!("../../../spec/parts.json");
     let mut h: u64 = 0xcbf29ce484222325;
-    let mut prev_cr = false;
-    let _ = prev_cr;
     for &b in raw.iter() {
         if b == b'\r' { continue; }
         h ^= b as u64;
         h = h.wrapping_mul(0x100000001b3);
-        prev_cr = false;
     }
     assert_eq!(format!("{:016x}", h), SPEC_HASH);
 }

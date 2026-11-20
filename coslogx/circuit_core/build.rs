@@ -24,12 +24,13 @@ fn spec_hash(bytes: &[u8]) -> String {
 
 fn when(w: Option<&Value>) -> String {
     let Some(w) = w else { return "None".into() };
-    let (kind, key) = if let Some(s) = w.get("state") { ("State", s.as_str().unwrap()) }
+    let (kind, key) = if w.get("value").is_some() { ("Value", "value") } else if let Some(s) = w.get("state") { ("State", s.as_str().unwrap()) }
         else if let Some(p) = w.get("param") { ("Param", p.as_str().unwrap()) } else { panic!("bad when {w}") };
     let eq = w.get("eq").map(|e| format!("Some({})", e.as_i64().unwrap())).unwrap_or("None".into());
     let bit = w.get("bit").map(|e| format!("Some({})", e.as_u64().unwrap())).unwrap_or("None".into());
     let inn: Vec<String> = w.get("in").and_then(|a| a.as_array()).map(|a| a.iter().map(|s| q(s.as_str().unwrap())).collect()).unwrap_or_default();
-    format!("Some(When {{ kind: WhenKind::{kind}, key: {}, eq: {eq}, bit: {bit}, within: &[{}] }})", q(key), inn.join(","))
+    let value = match w.get("value").and_then(|v| v.as_str()) { Some(c) => format!("Some(({}, {}))", c == "lt", f(num(&w["than"]))), None => "None".into() };
+    format!("Some(When {{ kind: WhenKind::{kind}, key: {}, eq: {eq}, bit: {bit}, within: &[{}], value: {value} }})", q(key), inn.join(","))
 }
 
 fn main() {
@@ -56,14 +57,28 @@ fn main() {
             let r = x.get("ref").map(|r| format!("Some(LimitRef {{ key: {}, default: {} }})", q(r["key"].as_str().unwrap()), f(num(&r["default"])))).unwrap_or("None".into());
             format!("LimitSpec {{ q: {}, warn: {}, err: {}, msg: {}, unit: {}, rated: {r} }}", q(x["q"].as_str().unwrap()), f(num(&x["warn"])), f(num(&x["err"])), q(x["msg"].as_str().unwrap()), q(x["unit"].as_str().unwrap())) }).collect()).unwrap_or_default();
         let layers: Vec<String> = p["symbol"].as_array().unwrap().iter().map(|l| format!(
-            "SymLayer {{ d: {}, when: {}, spin: {}, wiper: {}, widget: {} }}", q(l.get("d").and_then(|d| d.as_str()).unwrap_or("")), when(l.get("when")),
-            l.get("spin").is_some(), l.get("wiper").and_then(|b| b.as_bool()).unwrap_or(false), opt_str(l.get("widget")))).collect();
+            "SymLayer {{ d: {}, when: {}, spin: {}, wiper: {}, widget: {}, fill: {}, fill_when: &[{}] }}", q(l.get("d").and_then(|d| d.as_str()).unwrap_or("")), when(l.get("when")),
+            l.get("spin").is_some(), l.get("wiper").and_then(|b| b.as_bool()).unwrap_or(false), opt_str(l.get("widget")), opt_str(l.get("fill")),
+            l.get("fillWhen").and_then(|a| a.as_array()).map(|a| a.iter().map(|e| format!("({}, {})", when(e.get("when")).strip_prefix("Some(").unwrap().strip_suffix(")").unwrap(), q(e["color"].as_str().unwrap()))).collect::<Vec<_>>().join(", ")).unwrap_or_default())).collect();
+        let rules = |key: &str| -> String { p.get(key).and_then(|a| a.as_array()).map(|a| a.iter().map(|e| {
+            let j: Vec<String> = e["join"].as_array().unwrap().iter().map(|pr| { let n = |x: &Value| if x.as_str() == Some("gnd") { -1 } else { x.as_i64().unwrap() }; format!("({}, {})", n(&pr[0]), n(&pr[1])) }).collect();
+            format!("PathRule {{ when: {}, join: &[{}] }}", when(e.get("when")), j.join(", "))
+        }).collect::<Vec<_>>().join(", ")).unwrap_or_default() };
+        let (dcp, shp) = (rules("dcPath"), rules("shortPath"));
+        let ctext = opt_str(p.get("centerText").and_then(|c| c.get("text")));
         let state: Vec<String> = p.get("state").and_then(|s| s.as_array()).map(|s| s.iter().map(|x| q(x.as_str().unwrap())).collect()).unwrap_or_default();
-        writeln!(o, "    PartSpec {{ code: {}, name: {}, prefix: {}, group: {}, keywords: {}, pins: &[{}], bbox: {bbox}, nonlinear: {}, row_source: {}, tolerance: {}, params: &[{}], live: {live}, state: &[{}], limits: &[{}], symbol: &[{}] }},",
+        writeln!(o, "    PartSpec {{ code: {}, name: {}, prefix: {}, group: {}, keywords: {}, pins: &[{}], bbox: {bbox}, nonlinear: {}, row_source: {}, tolerance: {}, params: &[{}], live: {live}, state: &[{}], limits: &[{}], symbol: &[{}], dc_path: &[{dcp}], short_path: &[{shp}], center_text: {ctext} }},",
             q(code), q(p["name"].as_str().unwrap()), opt_str(p.get("prefix")), q(p["group"].as_str().unwrap()), q(p["keywords"].as_str().unwrap_or("")),
             pins.join(", "), p["nonlinear"].as_bool().unwrap_or(false), p["rowSource"].as_bool().unwrap_or(false), p["tolerance"].as_bool().unwrap_or(false),
             params.join(", "), state.join(", "), limits.join(", "), layers.join(", ")).unwrap();
     }
+    writeln!(o, "];").unwrap();
+    let dg = &spec["diagnostics"];
+    for (name, key) in [("SOURCE_SHORT_A", "sourceShortCurrentA"), ("SOURCE_RUNAWAY_A", "sourceRunawayCurrentA"), ("LED_WARN_A", "ledWarnCurrentA"), ("NODE_VOLTAGE_ERR_V", "nodeVoltageErrorV"), ("LAG_WARN_FRAMES", "lagWarnFrames"), ("HOLD_MS", "holdMs"), ("DANGLE_LIST_MAX", "dangleListMax"), ("NO_DC_LIST_MAX", "noDcPathListMax")] {
+        writeln!(o, "pub const {name}: f64 = {};", f(num(&dg[key]))).unwrap();
+    }
+    writeln!(o, "pub static MESSAGES: &[(&str, &str)] = &[").unwrap();
+    for (k, v) in dg["messages"].as_object().unwrap() { writeln!(o, "    ({}, {}),", q(k), q(v.as_str().unwrap())).unwrap(); }
     writeln!(o, "];").unwrap();
     writeln!(o, "pub static GROUPS: &[(&str, &[&str])] = &[").unwrap();
     for g in spec["groups"].as_array().unwrap() {

@@ -54,8 +54,8 @@ impl App {
 
     fn project_text(&self) -> String { let mut p = self.ed.proj.clone(); p.view = Some(self.view); p.to_json() }
     fn load_text(&mut self, t: &str) -> bool {
-        match Project::from_json(t) {
-            Ok(p) => { self.stop_run(); self.view = p.view.unwrap_or(self.view); self.ed.load(p, true); self.ed.mark_saved(); true }
+        match Project::load_json(t) {
+            Ok(l) => { let p = l.project; self.stop_run(); self.view = p.view.unwrap_or(self.view); self.ed.load(p, true); self.ed.mark_saved(); self.ed.flash = l.warnings.join("; "); true }
             Err(_) => false,
         }
     }

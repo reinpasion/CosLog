@@ -414,7 +414,7 @@ impl Sim {
     pub fn rebuild(&self, p: &Project, qs: f64) -> Sim { Sim::build(p, qs, Some(self)) }
 
     fn build(p: &Project, qs: f64, prev: Option<&Sim>) -> Sim {
-        let nl = build(p, 0x5EED);
+        let nl = build(p, p.seed());
         let t0 = prev.map(|s| s.time()).unwrap_or(0.0);
         let specs = groupize(&nl, qs);
         let mut comp_map = vec![None; p.c.len()];
