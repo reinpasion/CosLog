@@ -155,7 +155,7 @@ return function(msg){
 const WBUD=30;
 const farm={ws:[],mode:(typeof Worker=='function'&&typeof Blob=='function'&&typeof URL=='function'&&URL.createObjectURL)?'worker':'inline',gen:0,pend:0,dirty:1,gs:[],gt:[],act:[],eng:null,url:'',alive:0,t0:0,sf:0,wb:0,rl:0,note:''};
 const nwFor=n=>farm.mode=='worker'?Math.max(1,Math.min(CORES-1,16,n)):1;
-function farmInfo(){const n=farm.gs.length,w=nwFor(n);return(n?', '+n+' independent section'+(n>1?'s':'')+' on '+w+' thread'+(w>1?'s':''):'')+(farm.note?'. '+farm.note:'')}
+function farmInfo(){const n=farm.gs.length,w=nwFor(n);return(n?M('farm',{n,s:n>1?'s':'',w,s2:w>1?'s':''}):'')+(farm.note?'. '+farm.note:'')}
 function groupize(){const uf=new Int32Array(N);for(let i=0;i<N;i++)uf[i]=i;
  const f=a=>{while(uf[a]!=a)a=uf[a]=uf[uf[a]];return a},gm=new Map(),out=[];
  comps.forEach(c=>{let r=-1;for(const k of c.nd)if(k){if(r<0)r=k;else uf[f(k)]=f(r)}});
@@ -210,7 +210,10 @@ function Pp(a){cx.moveTo(a[0],a[1]);for(let i=2;i<a.length;i+=2)cx.lineTo(a[i],a
 const PC={};
 function pcmds(d){return PC[d]||(PC[d]=d.match(/[MLACQ][^MLACQ]*/g).map(s=>[s[0],...s.slice(1).trim().split(' ').map(Number)]))}
 function pwip(d,w){return pcmds(d.replace(/\{w([+-]\d+)?\}/g,(m,o)=>w+(o?+o:0)))}
-function lok(c,w){const t=w[0],k=w[1];if(t=='s')return(+c[k]||0)==w[2];if(t=='b')return((c[k]|0)>>w[2])&1;const o=(SX[c.t].find(e=>e[0]==k)||[])[4],v=o&&!w[2].includes(c[k])&&!o.includes(c[k])?o[0]:c[k];return w[2].includes(v)}
+const M=(k,o)=>SPEC.M[k].replace(/\{(\w+)\}/g,(_,x)=>o?o[x]:''),K=SPEC.K;
+function jr(c,key,fn){let n=0;for(const r of SPEC.P[c.t][key]||[])if(!r[0]||lok(c,r[0]))for(const[a,b]of r[1]){fn(a<0?0:c.nd[a],b<0?0:c.nd[b]);n++}return n}
+const opt=(c,i)=>(SPEC.P[c.t].o||[]).includes(i);
+function lok(c,w){const t=w[0],k=w[1];if(t=='v')return k=='lt'?c.val<w[2]:c.val>w[2];if(t=='s')return(+c[k]||0)==w[2];if(t=='b')return((c[k]|0)>>w[2])&1;const o=(SX[c.t].find(e=>e[0]==k)||[])[4],v=o&&!w[2].includes(c[k])&&!o.includes(c[k])?o[0]:c[k];return w[2].includes(v)}
 function sym(c){const t=c.t;cx.beginPath();
  for(const L of SPEC.P[t].y){let d=L,w=null,fl=0;if(typeof L!='string'){if(L[0]=='@scope'){osc(c);continue}d=L[0];w=L[1];fl=L[2]|0}
   if(w&&!lok(c,w))continue;
@@ -345,22 +348,20 @@ new ResizeObserver(size).observe(cv);
 function pinAt(x,y){const r=8/view.z;for(const c of comps)for(const p of pins(c))if(Math.hypot(x-p[0],y-p[1])<r)return p}
 function isConn(q){return comps.some(c=>pins(c).some(p=>p[0]==q[0]&&p[1]==q[1]))||wires.some(w=>(w.x1==q[0]&&w.y1==q[1])||(w.x2==q[0]&&w.y2==q[1])||onSeg(q,w))}
 function statics(){const o=[],nm=c=>c.n||c.t,deg=new Int32Array(N),uf=Array.from({length:N},(_,i)=>i),f=a=>{while(uf[a]!=a)a=uf[a]=uf[uf[a]];return a},u=(a,b)=>{uf[f(a)]=f(b)};
- if(!comps.length)return[['i','Place parts, wire them (click a pin to start a wire), add a Ground, then press Run.']];
- if(!hasG)o.push(['e','No Ground part: node voltages and meters have no reference. Add a Ground.']);
- comps.forEach(c=>{const n=c.nd,t=c.t;n.forEach(k=>deg[k]++);if(c.row>=0&&n[0]==n[1])o.push(['e',nm(c)+' has both terminals on one node (shorted by wiring).']);
-  if(/^(r|l|dc|ac|sg|d|sd|led|zd|lamp|mo|am|vm|fu|ldr|ntc|bz|sol)$/.test(t)||((t=='sw'||t=='bt')&&c.on)||(t=='nb'&&!c.on))u(n[0],n[1]);else if(t=='pot'){u(n[0],n[2]);u(n[2],n[1])}else if(t=='sp')u(n[0],c.on?n[2]:n[1]);
-  else if(t=='tr'){u(n[0],n[1]);u(n[2],n[3])}else if(t=='rl'){u(n[0],n[1]);if(c.on)u(n[2],n[3])}else if(t=='npn'||t=='pnp'){u(n[1],n[2]);u(n[0],n[2])}else if(t=='nm'||t=='pm')u(n[1],n[2]);
-  else if(/^(op|and|or|nand|nor|xor)$/.test(t))u(n[2],0);else if(t=='not')u(n[1],0);else if(t=='dff'){u(n[2],0);u(n[3],0)}else if(t=='jk'||t=='srf'){u(n[3],0);u(n[4],0)}else if(t=='tf'){u(n[2],0);u(n[3],0)}else if(t=='reg')u(n[2],n[1]);else if(t=='tm'){u(n[0],n[1]);u(n[7],n[0]);u(n[6],n[0]);u(n[5],0);u(n[4],n[1])}else if(t=='br'){u(n[0],n[2]);u(n[1],n[2]);u(n[3],n[0])}else if(t=='ctr'){for(let i=2;i<6;i++)u(n[i],0)}});
- const dang=[],fl=[];comps.forEach(c=>{if(c.t!='gnd'&&c.t!='lg')c.nd.forEach((k,i)=>{if(k&&deg[k]==1&&!((c.t=='dff'&&i>1)||(c.t=='ctr'&&i>0)||(c.t=='tm'&&i>5)||(c.t=='tf'&&i>1)||((c.t=='jk'||c.t=='srf')&&i>2)))dang.push(nm(c)+' pin '+(i+1))});if(c.t!='gnd')c.nd.forEach(k=>{if(k&&f(k)!=f(0)&&!fl.includes(nm(c)))fl.push(nm(c))})});
- if(dang.length)o.push(['w','Unconnected pin(s): '+dang.slice(0,6).join(', ')+(dang.length>6?'...':'')+'. Wire them or remove the part.']);
- if(hasG&&fl.length)o.push(['w','No DC path to ground at: '+fl.slice(0,6).join(', ')+'. Readings there are unreliable. Connect to ground or add a bleed resistor (capacitors and open switches block DC).']);
- o.push(['i',comps.length+' parts, '+(N-1)+' nodes, step '+fm(net.dt,'s')+(net.q?', Newton solver active':'')+farmInfo()]);return o}
+ if(!comps.length)return[['i',M('empty')]];
+ if(!hasG)o.push(['e',M('noGround')]);
+ comps.forEach(c=>{const n=c.nd,t=c.t;n.forEach(k=>deg[k]++);if(c.row>=0&&n[0]==n[1])o.push(['e',M('shortedTerminals',{name:nm(c)})]);
+  jr(c,'d',u)});
+ const dang=[],fl=[];comps.forEach(c=>{if(c.t!='gnd'&&c.t!='lg')c.nd.forEach((k,i)=>{if(k&&deg[k]==1&&!opt(c,i))dang.push(nm(c)+' pin '+(i+1))});if(c.t!='gnd')c.nd.forEach(k=>{if(k&&f(k)!=f(0)&&!fl.includes(nm(c)))fl.push(nm(c))})});
+ if(dang.length)o.push(['w',M('dangling',{list:dang.slice(0,K.dm).join(', '),more:dang.length>K.dm?'...':''})]);
+ if(hasG&&fl.length)o.push(['w',M('noDcPath',{list:fl.slice(0,K.nm).join(', ')})]);
+ o.push(['i',M('info',{parts:comps.length,nodes:N-1,dt:fm(net.dt,'s'),newton:net.q?M('newton'):'',farm:farmInfo()})]);return o}
 function dyn(){if(!net)return;const o=[];{const bz=comps.find(c=>c.t=='bz'&&c.bv>2);if(bz||au)snd(!!bz&&!pz,bz?bz.fr:0)}if(qa&&net.lag>5&&qs<4){qs*=2;dirtyNet=true}
- if(net.fail)o.push(['e','Solver did not converge in '+net.fail+' step(s) (last change '+fm(net.md,'V')+'). Try: series resistance on diodes/LEDs/sources, lower op-amp gain, check transistor polarity, or lower the speed.']);
- if(net.lag>3)o.push(['w','Cannot keep real-time on this CPU, so the simulation runs slower than the speed setting. '+(qa?(qs>1?'Auto quality has coarsened the time step to keep up.':''):'Set Quality to Auto or Fast, or simplify the circuit.')]);
- if(net.mv>1e3)o.push(['e','Node voltage reached '+fm(net.mv,'V')+': usually a floating node, a shorted ideal source, or a missing ground path.']);
- comps.forEach(c=>{const n=c.n||c.t;if(c.row>=0&&Math.abs(c.ix||0)>20)o.push(['e',n+' supplies '+fm(Math.abs(c.ix||0),'A')+': probably a short circuit. Add series resistance.']);
-  if(c.t=='led'&&c.cur>.05)o.push(['w',n+' carries '+fm(c.cur,'A')+': add a current-limiting resistor.']);if(c.t=='fu'&&c.bl)o.push(['i',n+' has blown (open). Press Reset to replace it.'])});
+ if(net.fail)o.push(['e',M('noConverge',{n:net.fail,md:fm(net.md,'V')})]);
+ if(net.lag>K.lf)o.push(['w',M('lag',{hint:qa?(qs>1?M('lagHintAuto'):''):M('lagHintManual')})]);
+ if(net.mv>K.nv)o.push(['e',M('nodeVoltage',{v:fm(net.mv,'V')})]);
+ comps.forEach(c=>{const n=c.n||c.t;if(c.row>=0&&Math.abs(c.ix||0)>K.sr)o.push(['e',M('sourceRunaway',{name:n,i:fm(Math.abs(c.ix||0),'A')})]);
+  if(c.t=='led'&&c.cur>K.lw)o.push(['w',M('ledCurrent',{name:n,i:fm(c.cur,'A')})]);if(c.t=='fu'&&c.bl)o.push(['i',M('fuseBlown',{name:n})])});
  scan(o);net.mv=0;net.fail=0;net.lag=0;dd=o;render()}
 function render(){const l=ds.concat(dd).sort((p,q)=>'ewi'.indexOf(p[0])-'ewi'.indexOf(q[0])),n=l.filter(a=>a[0]!='i').length,B=$('dgb');B.textContent='Diagnostics'+(n?' ('+n+')':'');B.style.borderColor=n?(l.some(a=>a[0]=='e')?'#e5484d':'#d9822b'):'';
  const P=$('dg');if(!P.hidden)P.innerHTML='<b>Simulation diagnostics</b>'+(n?'':'<p class="i">✓ No problems detected.</p>')+l.map(a=>'<p class="'+a[0]+'">'+(a[0]=='e'?'✖ ':a[0]=='w'?'⚠ ':'ℹ ')+String(a[1]).replace(/[<&]/g,'')+'</p>').join('')}
@@ -370,7 +371,8 @@ setInterval(()=>{const n=performance.now(),dt=n-lw,cpu=Math.min(100,bz/dt*100),p
  const nt=run&&farm.mode=='worker'?farm.act.length:0,wl=nt?Math.min(100,farm.wb/dt/nt*100):0;farm.wb=0;
  $('hw').textContent='CPU: UI '+cpu.toFixed(0)+'%'+(nt?'  +  '+nt+' sim thread'+(nt>1?'s':'')+' avg '+wl.toFixed(0)+'%':'')+'  |  RAM: '+(pm?(pm.usedJSHeapSize/1048576).toFixed(0)+' MB':'n/a in this browser')+'  |  '+(run?sps+' steps/s':'idle')+'  |  cores: '+CORES+'  |  step '+(net?fm(net.dt,'s'):'-')+'  |  spec '+SPEC.h.slice(0,8)},1000);
 function projTxt(){return JSON.stringify(Object.assign({app:'CosLog',ver:1},SEED!=24301?{seed:SEED}:{},JSON.parse(snap()),{view}),null,1)}
-function loadProj(t){const o=JSON.parse(t);if(!Array.isArray(o.c)||!Array.isArray(o.w))throw 0;{const sd=typeof o.seed=='string'?Number(o.seed):o.seed;SEED=Number.isSafeInteger(sd)&&sd>=0?sd:24301}if(run)setRun(false);push();load(JSON.stringify(o));if(skipped.length)flash('Skipped '+skipped.length+' unknown part(s): '+[...new Set(skipped)].join(', ')+' (made with a newer or different CosLog)');if(o.view&&o.view.z)view=o.view;dirty()}
+function loadProj(t){const o=JSON.parse(t);if(!Array.isArray(o.c)||!Array.isArray(o.w))throw 0;{const sd=typeof o.seed=='string'?Number(o.seed):o.seed;SEED=Number.isSafeInteger(sd)&&sd>=0?sd:24301}const wn=[];if(o.app!==undefined&&o.app!='CosLog'&&o.app!='CircuitLite')wn.push('Unrecognised app "'+o.app+'"');if(o.ver>1)wn.push('This file was saved by a newer CosLog');if(o.seed!==undefined&&o.seed!==null&&!(Number.isSafeInteger(typeof o.seed=='string'?Number(o.seed):o.seed)&&(typeof o.seed=='string'?Number(o.seed):o.seed)>=0))wn.push('Unreadable tolerance seed; using the default');
+if(run)setRun(false);push();load(JSON.stringify(o));if(skipped.length)wn.push('Skipped '+skipped.length+' unknown part(s): '+[...new Set(skipped)].join(', ')+' (made with a newer or different CosLog)');if(wn.length)flash(wn.join('; '),9000);if(o.view&&o.view.z)view=o.view;dirty()}
 const pmsg=m=>{$('pmsg').textContent=m},py=()=>window.pywebview&&pywebview.api;
 $('sv').onclick=()=>{$('pt').value=projTxt();pmsg('Copy or download to keep your project.');$('pj').hidden=false};
 $('op').onclick=()=>{$('pt').value='';pmsg('Open a file, or paste project text and press Load.');$('pj').hidden=false};
@@ -388,31 +390,23 @@ function stress(n){const C=[],W=[],c=(t,x,y,r,o)=>C.push(Object.assign({t,x,y,r,
   w(100,Y,160,Y);w(240,Y,280,Y);w(360,Y,540,Y);w(620,Y,660,Y);w(740,Y,740,Y+80);w(100,Y+80,740,Y+80)}
  return{c:C,w:W,view:{x:10,y:10,z:Math.max(.12,Math.min(.7,700/(120*n+100)))}}}
 function clrF(){comps.forEach(c=>{c.ft=0});wires.forEach(w=>{w.ft=0})}
-function chk(c){const t=c.t,I=c.pi||0,A=c.ia||0,Vm=c.pv||0,P=c.pw||0,lim=(a,w,e,m,u)=>a>e?['e',m+fm(a,u)+' exceeds '+fm(e,u)]:a>w?['w',m+fm(a,u)+' near limit '+fm(e,u)]:null;
- if(t=='r'){const rt=c.qn>0?c.qn:.25;return lim(P,rt*.75,rt,'overheating ','W')}
- if(t=='lamp'){const rt=c.pn>0?c.pn:.5;return lim(P,rt*1.2,rt*1.6,'overpowered ','W')}
- if(t=='c'){const rt=c.sn>0?c.sn:50;return lim(Vm,rt*.8,rt,'overvoltage ','V')}
- if(t=='l')return lim(I,3,5,'overcurrent ','A');if(t=='tr')return lim(A,2,4,'winding overcurrent ','A')||lim(I,20,40,'winding surge ','A');
- if(t=='d')return lim(A,.7,1,'overcurrent ','A')||lim(I,10,30,'surge ','A')||lim(Vm,80,100,'reverse breakdown ','V');
- if(t=='sd')return lim(A,2,3,'overcurrent ','A')||lim(I,20,40,'surge ','A')||lim(Vm,32,40,'reverse breakdown ','V');
- if(t=='led')return lim(A,.025,.05,'overcurrent ','A')||lim(I,.15,.3,'surge ','A')||lim(Vm,4,6,'reverse voltage ','V');
- if(t=='zd')return lim(P,.4,.5,'overpowered ','W');
- if(t=='npn'||t=='pnp')return lim(Vm,32,40,'Vce ','V')||lim(A,.15,.4,'collector current ','A')||lim(I,.6,1.5,'surge ','A')||lim(P,.4,.6,'dissipating ','W');
- if(t=='nm'||t=='pm')return lim(Vm,48,60,'Vds ','V')||lim(A,1.5,3,'drain current ','A')||lim(I,6,12,'surge ','A')||lim(P,.8,1.2,'dissipating ','W');
- if(c.row>=0)return A>15?['e','short circuit: supplying '+fm(A,'A')]:null;
- if(t=='am')return lim(A,3,10,'overload ','A');if(t=='fu'&&c.bl)return['w','blown (open)'];return null}
-function scan(o){const now=performance.now(),hold=now+3000,nm=c=>c.n||c.t,mC=(c,l,m)=>{if(!c.ft||c.ft.l!='e'||l=='e')c.ft={l,m,t:hold}},mW=(w,l)=>{if(!w.ft||w.ft.l!='e'||l=='e')w.ft={l,t:hold}};
+function chk(c){const P=SPEC.P[c.t];
+ for(const l of P.g||[]){const a=c[SPEC.Q[l[0]]]||0,rt=l[5]?(c[l[5]+'n']>0?c[l[5]+'n']:l[6]):1,w=l[1]*rt,e=l[2]*rt;
+  if(a>e)return['e',M('limitErr',{msg:l[3],value:fm(a,l[4]),limit:fm(e,l[4])})];if(a>w)return['w',M('limitWarn',{msg:l[3],value:fm(a,l[4]),limit:fm(e,l[4])})]}
+ if(c.row>=0){const A=c.ia||0;return A>K.sa?['e',M('sourceShort',{i:fm(A,'A')})]:null}
+ if(P.B&&c.bl)return['w',M('fuseFault')];return null}
+function scan(o){const now=performance.now(),hold=now+K.h,nm=c=>c.n||c.t,mC=(c,l,m)=>{if(!c.ft||c.ft.l!='e'||l=='e')c.ft={l,m,t:hold}},mW=(w,l)=>{if(!w.ft||w.ft.l!='e'||l=='e')w.ft={l,t:hold}};
  comps.forEach(c=>{if(c.ft&&c.ft.t<now)c.ft=0});wires.forEach(w=>{if(w.ft&&w.ft.t<now)w.ft=0});
  const deg=new Int32Array(N);comps.forEach(c=>c.nd.forEach(k=>deg[k]++));
- comps.forEach(c=>{if(c.t!='gnd'&&c.t!='lg')c.nd.forEach((k,i)=>{if(k&&deg[k]==1&&!((c.t=='dff'&&i>1)||(c.t=='ctr'&&i>0)||(c.t=='tm'&&i>5)||(c.t=='tf'&&i>1)||((c.t=='jk'||c.t=='srf')&&i>2))){if(!c.ft||c.ft.l!='e')c.ft={l:'w',m:'pin '+(i+1)+' unconnected',pin:i,t:hold};wires.forEach(w=>{if(w.nd==k)mW(w,'w')})}})});
+ comps.forEach(c=>{if(c.t!='gnd'&&c.t!='lg')c.nd.forEach((k,i)=>{if(k&&deg[k]==1&&!opt(c,i)){if(!c.ft||c.ft.l!='e')c.ft={l:'w',m:M('pinFault',{n:i+1}),pin:i,t:hold};wires.forEach(w=>{if(w.nd==k)mW(w,'w')})}})});
  const uf=Array.from({length:N},(_,i)=>i),f=a=>{while(uf[a]!=a)a=uf[a]=uf[uf[a]];return a},low=[];
- comps.forEach(c=>{const n=c.nd,t=c.t;if(((t=='sw'||t=='bt')&&c.on)||(t=='nb'&&!c.on)||t=='am'||(t=='fu'&&!c.bl)||(t=='r'&&c.val<.5)){uf[f(n[0])]=f(n[1]);low.push(c)}else if(t=='sp'){uf[f(n[0])]=f(c.on?n[2]:n[1]);low.push(c)}});
- comps.forEach(c=>{if(c.row>=0&&f(c.nd[0])==f(c.nd[1])){const rt=f(c.nd[0]),via=low.filter(l=>f(l.nd[0])==rt);mC(c,'e','short circuit');via.forEach(l=>mC(l,'e','in short-circuit path'));
+ comps.forEach(c=>{if(jr(c,'s',(a,b)=>{uf[f(a)]=f(b)}))low.push(c)});
+ comps.forEach(c=>{if(c.row>=0&&f(c.nd[0])==f(c.nd[1])){const rt=f(c.nd[0]),via=low.filter(l=>f(l.nd[0])==rt);mC(c,'e',M('faultShort'));via.forEach(l=>mC(l,'e',M('faultPath')));
   {const touch=(w,p)=>(w.x1==p[0]&&w.y1==p[1])||(w.x2==p[0]&&w.y2==p[1])||onSeg(p,w),seen=new Set,fr=[];pins(c).forEach(p=>wires.forEach(w=>{if(touch(w,p)&&w.nd>=0&&f(w.nd)==rt&&!seen.has(w)){seen.add(w);fr.push(w)}}));
-   while(fr.length){const w=fr.pop();mW(w,'e');for(const v of wires)if(!seen.has(v)&&v.nd>=0&&f(v.nd)==rt&&(touch(v,[w.x1,w.y1])||touch(v,[w.x2,w.y2])||touch(w,[v.x1,v.y1])||touch(w,[v.x2,v.y2]))){seen.add(v);fr.push(v)}}}o.push(['e',nm(c)+' is short-circuited through '+(via.length?via.map(nm).join(', '):'wiring')+'. Marked in red on the schematic.'])}});
- comps.forEach(c=>{const r=chk(c);if(r){mC(c,r[0],r[1]);o.push([r[0],nm(c)+': '+r[1]+'.']);
+   while(fr.length){const w=fr.pop();mW(w,'e');for(const v of wires)if(!seen.has(v)&&v.nd>=0&&f(v.nd)==rt&&(touch(v,[w.x1,w.y1])||touch(v,[w.x2,w.y2])||touch(w,[v.x1,v.y1])||touch(w,[v.x2,v.y2]))){seen.add(v);fr.push(v)}}}o.push(['e',M('shortTrace',{name:nm(c),via:via.length?via.map(nm).join(', '):M('shortWiring')})])}});
+ comps.forEach(c=>{const r=chk(c);if(r){mC(c,r[0],r[1]);o.push([r[0],M('partFault',{name:nm(c),msg:r[1]})]);
   if(c.row>=0&&r[0]=='e'){wires.forEach(w=>{if(w.nd>0&&(w.nd==c.nd[0]||w.nd==c.nd[1]))mW(w,'e')})}}c.pi=c.pv=0});
- if(net.mv>1e3){const bn=net.bn;wires.forEach(w=>{if(w.nd==bn)mW(w,'e')})}}
+ if(net.mv>K.nv){const bn=net.bn;wires.forEach(w=>{if(w.nd==bn)mW(w,'e')})}}
 function drawF(){const now=performance.now(),pl=run&&!pz?.5+.5*Math.sin(now/170):1;cx.lineCap='round';
  for(const w of wires){const f=w.ft;if(f&&(f.t>now||!(run&&!pz))){cx.strokeStyle=f.l=='e'?'#ff3b30':'#ff9f0a';cx.lineWidth=6;cx.globalAlpha=.25+.45*pl;cx.beginPath();Pp([w.x1,w.y1,w.x2,w.y2]);cx.stroke()}}cx.globalAlpha=1;
  for(const c of comps){const f=c.ft;if(!f||(f.t<=now&&run&&!pz))continue;const b=bbox(c),cl=f.l=='e'?'#ff3b30':'#ff9f0a';cx.strokeStyle=cl;cx.lineWidth=2;cx.globalAlpha=.4+.6*pl;cx.setLineDash([6,4]);cx.strokeRect(b[0]+4,b[1]+4,b[2]-b[0]-8,b[3]-b[1]-8);cx.setLineDash([]);
@@ -441,7 +435,7 @@ function scope(c){const h=34;cx.fillStyle='#0b1a12';cx.fillRect(-30,-h,140,2*h);
  const sc=28/mx;cx.lineWidth=1.3;[[c.ta,'#f5d020'],[c.tb,'#35c7ff']].forEach(([a,cl])=>{cx.strokeStyle=cl;cx.beginPath();for(let i=0;i<120;i++){const X=-26+i*1.1,Y=-a[i]*sc;i?cx.lineTo(X,Y):cx.moveTo(X,Y)}cx.stroke()});
  cx.fillStyle='#9ab';cx.font='9px system-ui';cx.textAlign='left';cx.fillText('±'+fm(mx,'V'),-27,-h+9)}
 $('ex').onchange=e=>{const v=e.target.value;e.target.value='';if(v)guard(()=>{if(v=='a')ex();else if(v=='b'){loadProj(JSON.stringify(D555()));comps.forEach(nm_);net=null;mark();hist=[];fut=[]}else{loadProj(JSON.stringify(stress(+v.slice(1))));comps.forEach(nm_);net=null;qs=1;qa=1;$('ql').value='0';mark();hist=[];fut=[]}saved()})};
-const upd=()=>{const u=snap()!==sv;$('us').textContent=u?'● Unsaved changes  ':'';document.title=(u?'* ':'')+'CosLog Y'},saved=()=>{sv=snap();upd()},flash=m=>{$('us').textContent=m+'  ';setTimeout(upd,2500)};setInterval(upd,1000);
+const upd=()=>{const u=snap()!==sv;$('us').textContent=u?'● Unsaved changes  ':'';document.title=(u?'* ':'')+'CosLog Y'},saved=()=>{sv=snap();upd()},flash=(m,d)=>{$('us').textContent=m+'  ';setTimeout(upd,d||2500)};setInterval(upd,1000);
 addEventListener('beforeunload',e=>{if(snap()!==sv){e.preventDefault();e.returnValue=''}});
 function dlg(h,bs){$('mb').innerHTML=h+'<div id="mbb" style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px"></div>';bs.forEach(([t,f])=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>{$('md').hidden=true;f&&f()};$('mbb').append(b)});$('md').hidden=false}
 const guard=fn=>snap()===sv?fn():dlg('<b>Unsaved changes</b><div>This circuit has changes that were not saved to a file. Continue and lose them?</div>',[['Cancel'],['Save first',()=>$('sv').click()],['Discard',fn]]);

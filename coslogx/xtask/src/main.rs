@@ -114,11 +114,13 @@ fn check(root: &Path) -> Result<usize, String> {
 }
 
 // ------------------------------------------------------------------ compact runtime spec for CosLog Y
-// {h, G:[[group,[codes]]], L:{color:[is,rgb]}, P:{code:{n,x,p,l,b,N,v,f,a,u,k,y}}}
+// {h, M:{messages}, K:{diagnostic constants}, Q:{quantity:field}, G:[[group,[codes]]], L:{color:[is,rgb]}, P:{code:{n,x,p,l,b,N,v,f,a,u,k,y,o,g,d,s,B}}}
+//   o optional pin indices  g limits [[quantity,warn,err,msg,unit,ratingKey?,ratingDefault?]]  d/s dcPath/shortPath [[when|null,[[pinA,pinB]]]] (pin -1 = ground)  B has blown state
 //   n name  x prefix  p pins [[x,y]]  l pin labels  b bbox override  N nonlinear  v/f placement defaults
 //   a params [[key,name,unit,default?,options?]]  u value-label unit  k keywords
-//   y layers: "path" | [path, when?, flags?] | ["@scope"]; when = ["s",state,eq] | ["b",state,bit] | ["p",param,[in..]]; flags: 1 wiper, 2 spin
+//   y layers: "path" | [path, when?, flags?] | ["@scope"]; when = ["s",state,eq] | ["b",state,bit] | ["p",param,[in..]] | ["v","lt"|"gt",than]; flags: 1 wiper, 2 spin
 fn compact_when(w: &Value) -> Value {
+    if let Some(c) = w["value"].as_str() { return json!(["v", c, w["than"]]); }
     if let Some(s) = w["state"].as_str() { if let Some(b) = w.get("bit") { return json!(["b", s, b]); } return json!(["s", s, w["eq"]]); }
     json!(["p", w["param"], w["in"]])
 }
@@ -145,6 +147,19 @@ fn compact(s: &Value, h: &str) -> Value {
         if !a.is_empty() { o.insert("a".into(), Value::Array(a)); }
         if let Some(u) = p["labelUnit"].as_str() { if !u.is_empty() { o.insert("u".into(), json!(u)); } }
         o.insert("k".into(), p["keywords"].clone());
+        let opt: Vec<Value> = p["pins"].as_array().unwrap().iter().enumerate().filter(|(_, q)| q["optional"] == true).map(|(i, _)| json!(i)).collect();
+        if !opt.is_empty() { o.insert("o".into(), Value::Array(opt)); }
+        if let Some(l) = p.get("limits").and_then(Value::as_array) {
+            o.insert("g".into(), Value::Array(l.iter().map(|x| { let mut v = vec![x["q"].clone(), x["warn"].clone(), x["err"].clone(), x["msg"].clone(), x["unit"].clone()];
+                if let Some(r) = x.get("ref") { v.push(r["key"].clone()); v.push(r["default"].clone()); } Value::Array(v) }).collect()));
+        }
+        for (key, to) in [("dcPath", "d"), ("shortPath", "s")] {
+            if let Some(r) = p.get(key).and_then(Value::as_array) {
+                o.insert(to.into(), Value::Array(r.iter().map(|e| json!([e.get("when").map(compact_when).unwrap_or(Value::Null),
+                    e["join"].as_array().unwrap().iter().map(|pr| pr.as_array().unwrap().iter().map(|x| if x == "gnd" { json!(-1) } else { x.clone() }).collect::<Vec<_>>()).collect::<Vec<_>>()])).collect()));
+            }
+        }
+        if p.get("state").and_then(Value::as_array).map_or(false, |a| a.iter().any(|x| x == "bl")) { o.insert("B".into(), json!(1)); }
         o.insert("y".into(), Value::Array(p["symbol"].as_array().unwrap().iter().map(|l| {
             if let Some(w) = l["widget"].as_str() { return json!([format!("@{w}")]); }
             let d = l["d"].clone(); let fl = if l["wiper"] == true { 1 } else if l.get("spin").is_some() { 2 } else { 0 };
@@ -153,7 +168,9 @@ fn compact(s: &Value, h: &str) -> Value {
         parts.insert(code.clone(), Value::Object(o));
     }
     let led: Map<String, Value> = s["ledColors"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), json!([v["is"], v["rgb"]]))).collect();
-    json!({ "h": h, "G": s["groups"].as_array().unwrap().iter().map(|g| json!([g["name"], g["parts"]])).collect::<Vec<_>>(), "L": led, "P": parts })
+    let d = &s["diagnostics"];
+    let k = json!({ "sa": d["sourceShortCurrentA"], "sr": d["sourceRunawayCurrentA"], "lw": d["ledWarnCurrentA"], "nv": d["nodeVoltageErrorV"], "lf": d["lagWarnFrames"], "h": d["holdMs"], "dm": d["dangleListMax"], "nm": d["noDcPathListMax"] });
+    json!({ "h": h, "M": d["messages"], "K": k, "Q": s["quantities"], "G": s["groups"].as_array().unwrap().iter().map(|g| json!([g["name"], g["parts"]])).collect::<Vec<_>>(), "L": led, "P": parts })
 }
 fn compact_string(root: &Path) -> Result<(String, String), String> {
     check(root)?; let (b, s) = load(root)?; let h = hash(&b);
