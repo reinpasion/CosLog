@@ -11,3 +11,4 @@ pub mod params;
 pub mod editor;
 pub mod examples;
 pub mod diagnostics;
+pub mod spec;

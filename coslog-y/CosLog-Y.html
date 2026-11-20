@@ -1,0 +1,459 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>CosLog</title>
+<style>
+:root{--bg:#f4f5f7;--p:#fff;--t:#1d2433;--l:#cfd5df;--a:#2563eb;--w:#0a7d3b;--c:#111;--gr:#c9cfda;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171c;--p:#1d2128;--t:#e6e9ef;--l:#39414f;--a:#5b9cff;--w:#4ade80;--c:#e6e9ef;--gr:#2d3440}}
+:root[data-theme="dark"]{--bg:#14171c;--p:#1d2128;--t:#e6e9ef;--l:#39414f;--a:#5b9cff;--w:#4ade80;--c:#e6e9ef;--gr:#2d3440}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{background:var(--bg);color:var(--t);font:13px system-ui,-apple-system,"Segoe UI",sans-serif}
+#app{display:flex;height:100%}aside{width:168px;background:var(--p);border-right:1px solid var(--l);padding:6px;overflow:hidden;display:flex;flex-direction:column;gap:4px}
+main{position:relative;flex:1;display:flex;flex-direction:column;min-width:0}header,footer{background:var(--p);border-bottom:1px solid var(--l);padding:5px 8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+footer{border:0;border-top:1px solid var(--l);font-size:12px;opacity:.85}
+button,input,select{font:inherit;color:var(--t);background:var(--bg);border:1px solid var(--l);border-radius:5px;padding:4px 8px}button{cursor:pointer}
+button:hover{border-color:var(--a)}button:disabled{opacity:.4;cursor:not-allowed}button:disabled:hover{border-color:var(--l)}button.on{background:var(--a);color:#fff;border-color:var(--a)}input{width:70px}input:disabled{opacity:.4}
+#cv{flex:1;width:100%;min-height:0;touch-action:none;display:block}#pj{position:absolute;left:50%;top:70px;transform:translateX(-50%);width:min(520px,94%);background:var(--p);border:1px solid var(--l);border-radius:8px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.35);z-index:5}#pj[hidden]{display:none}#pj textarea{width:100%;height:180px;margin-top:6px;background:var(--bg);color:var(--t);border:1px solid var(--l);border-radius:5px;font:11px monospace}
+#dg{position:absolute;right:8px;bottom:36px;width:min(380px,92%);max-height:50%;overflow:auto;background:var(--p);border:1px solid var(--l);border-radius:8px;padding:8px 12px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.25)}#dg[hidden]{display:none}#dg p{margin:5px 0}.e{color:#e5484d}.w{color:#d9822b}.i{color:var(--a)}
+#pr{background:var(--p);border-bottom:1px solid var(--l);padding:4px 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-height:32px;font-size:12px}#pr input,#pr select{width:78px;padding:2px 6px}#pr span{opacity:.6}
+#pal{flex:1;overflow:auto;min-height:0}#srch{width:100%}aside details{border-bottom:1px solid var(--l);padding-bottom:3px}aside summary{cursor:pointer;font-size:11px;text-transform:uppercase;opacity:.7;padding:5px 2px}aside details button{display:block;width:100%;text-align:left;margin:2px 0;padding:3px 8px}
+h4{margin:6px 0 2px;font-size:11px;opacity:.6;text-transform:uppercase}
+#md{position:absolute;inset:0;background:rgba(0,0,0,.4);z-index:9;display:flex;align-items:center;justify-content:center}#md[hidden]{display:none}#mb{background:var(--p);border:1px solid var(--l);border-radius:8px;padding:12px;width:min(380px,92%);display:flex;flex-direction:column;gap:6px}#mb input,#mb select{width:100%}#mb label{display:block}
+header{flex-direction:column;align-items:stretch;gap:5px}.hr{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.g{display:flex;gap:4px;align-items:center;padding-right:8px;border-right:1px solid var(--l)}.g:last-child,.g.sp{border:0}.g.sp{margin-left:auto;padding-right:0}
+</style></head><body><div id="app"><aside><input id="srch" placeholder="Search parts  ( / )" autocomplete="off"><div id="pal"></div></aside><main>
+<header><div class="hr"><div class="g"><button id="run">Run</button><button id="stp">Stop</button><button id="rst">Reset</button></div><div class="g"><label>Speed <input id="spd" type="range" min="1" max="100" value="50" style="width:80px;padding:0"><b id="sx">1×</b></label><select id="ql" title="Accuracy vs speed"><option value="0">Quality: Auto</option><option value="1">Quality: High</option><option value="2">Quality: Balanced</option><option value="4">Quality: Fast</option></select></div><div class="g"><button id="dgb">Diagnostics</button></div><div class="g sp"><select id="ex" title="Load an example circuit"><option value="">Examples...</option><option value="a">Rectifier + transistor amp</option><option value="b">555 astable LED blinker</option><option value="s6">Stress test: 6 channels (48 parts)</option><option value="s16">Stress test: 16 channels (128 parts)</option><option value="s32">Stress test: 32 channels (256 parts)</option></select><button id="sv">Save</button><button id="op">Open</button></div></div><div class="hr"><div class="g"><button id="un">Undo</button><button id="re">Redo</button></div><div class="g"><button id="wb">Wire (W)</button><button id="rot">Rotate (R)</button><button id="mh" title="M">Mirror ↔</button><button id="mv" title="Shift+M">Mirror ↕</button></div><div class="g"><button id="cp" title="Ctrl+C">Copy</button><button id="ps" title="Ctrl+V">Paste</button><button id="del">Delete</button></div><label style="display:none"><span id="lv">Value</span> <input id="val" disabled></label><label style="display:none"><span id="lf">Hz/%</span> <input id="frq" disabled></label></div></header>
+<div id="pr"></div><canvas id="cv"></canvas><div id="pj" hidden><b>Project</b> <span id="pmsg" style="opacity:.7"></span><textarea id="pt" spellcheck="false"></textarea><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button id="pc">Copy</button><button id="pd">Download .json</button><button id="pf">Open file...</button><button id="pl">Load from text</button><button id="px">Close</button></div><input id="pi" type="file" accept=".json,application/json" hidden></div>
+<div id="dg" hidden></div><div id="md" hidden><div id="mb"></div></div>
+<footer><b id="us" style="color:#d9822b"></b><span id="st"></span><span id="hw" style="margin-left:auto;font-variant-numeric:tabular-nums"></span></footer></main></div>
+<script>
+const $=i=>document.getElementById(i),cv=$('cv'),cx=cv.getContext('2d'),G=20,PI=Math.PI,P2=[[-40,0],[40,0]];
+const SPEC={"G":[["Sources",["dc","ac","sg","cs","sol","gnd"]],["Passive",["r","pot","ldr","ntc","l","c","tr","fu"]],["Switches",["sw","bt","nb","sp","rl"]],["Diodes",["d","sd","led","zd","br"]],["Transistors",["npn","pnp","nm","pm"]],["ICs & logic",["op","reg","and","or","not","nand","nor","xor","dff","jk","tf","srf","ctr","tm"]],["Loads",["lamp","mo","bz"]],["Instruments",["vm","am","om","lg","os"]]],"L":{"blue":[1e-27,"70,130,255"],"green":[1e-20,"60,220,90"],"red":[1e-18,"255,70,50"],"white":[9.999999999999999e-27,"255,255,235"],"yellow":[1e-19,"255,210,40"]},"P":{"ac":{"a":[["v","Amplitude","V"],["f","Frequency","Hz"],["p","Offset","V","0"],["q","Phase","°","0"],["s","Series R","Ω","0"]],"f":"50","k":"mains generator sine","n":"AC Source","p":[[0,-40],[0,40]],"u":"V","v":"12","x":"V","y":["M0 -40L0 -16","M0 16L0 40","M16 0A0 0 16 0 6.2832 0","M-9 0C-5 -12 -1 -12 0 0C1 12 5 12 9 0"]},"am":{"k":"ammeter meter current","n":"Ammeter","p":[[-40,0],[40,0]],"x":"AM","y":["M-40 0L-16 0","M16 0L40 0","M16 0A0 0 16 0 6.2832 0"]},"and":{"a":[["v","High level","V"]],"k":"gate logic","l":["A","B","Y"],"n":"AND gate","p":[[-40,-20],[-40,20],[40,0]],"u":"V","v":"5","x":"U","y":["M-40 -20L-20 -20","M-40 20L-20 20","M26 0L40 0","M-20 -26L-20 26L0 26A0 0 26 1.5708 -1.5708 1L-20 -26"]},"br":{"N":1,"k":"bridge rectifier full wave","n":"Bridge rectifier","p":[[-40,-20],[-40,20],[40,-20],[40,20]],"x":"BR","y":["M-40 -20L-24 -20","M-40 20L-24 20","M24 -20L40 -20","M24 20L40 20","M-24 -30L24 -30L24 30L-24 30L-24 -30","M0 -22L18 0L0 22L-18 0L0 -22"]},"bt":{"k":"button push momentary","n":"Button","p":[[-40,0],[40,0]],"x":"BTN","y":["M-40 0L-12 0","M12 0L40 0",["M-10 -14L10 -14",["s","on",0]],["M0 -14L0 -22",["s","on",0]],["M-12 0L12 0",["s","on",1]],["M-10 -4L10 -4",["s","on",1]],["M0 -4L0 -12",["s","on",1]]]},"bz":{"a":[["v","Coil resistance","Ω"],["f","Tone","Hz"]],"f":"2k","k":"buzzer speaker sound beep","n":"Buzzer","p":[[-40,0],[40,0]],"u":"Ω","v":"100","x":"BZ","y":["M-40 0L-14 0","M14 0L40 0","M-14 -6L-6 -6L4 -14L4 14L-6 6L-14 6L-14 -6","M12 -8A6 0 10 -0.8 0.8 0"]},"c":{"a":[["v","Capacitance","F"],["p","Tolerance","%","0"],["q","Initial V","V","0"],["s","Voltage rating","V","50"]],"k":"capacitor farad","n":"Capacitor","p":[[-40,0],[40,0]],"u":"F","v":"10u","x":"C","y":["M-40 0L-4 0","M4 0L40 0","M-4 -12L-4 12","M4 -12L4 12"]},"cs":{"a":[["v","Current","A"]],"k":"current source","n":"Current src","p":[[0,-40],[0,40]],"u":"A","v":"10m","x":"I","y":["M0 -40L0 -16","M0 16L0 40","M16 0A0 0 16 0 6.2832 0","M0 9L0 -9","M-4 -4L0 -9L4 -4"]},"ctr":{"a":[["v","High level","V"]],"k":"counter binary digital","l":["CK","RST","Q0","Q1","Q2","Q3"],"n":"4-bit counter","p":[[-40,-20],[-40,20],[40,-40],[40,-20],[40,20],[40,40]],"u":"V","v":"5","x":"CTR","y":["M-40 -20L-24 -20","M-40 20L-24 20","M24 -40L40 -40","M24 -20L40 -20","M24 20L40 20","M24 40L40 40","M-24 -50L24 -50L24 50L-24 50L-24 -50","M-24 -28L-14 -20L-24 -12",["M20.5 -40A18 -40 2.5 0 6.2832 0",["b","cnt",0]],["M20.5 -20A18 -20 2.5 0 6.2832 0",["b","cnt",1]],["M20.5 20A18 20 2.5 0 6.2832 0",["b","cnt",2]],["M20.5 40A18 40 2.5 0 6.2832 0",["b","cnt",3]]]},"d":{"N":1,"k":"diode rectifier","n":"Diode","p":[[-40,0],[40,0]],"x":"D","y":["M-40 0L-8 0","M8 0L40 0","M-8 -10L8 0L-8 10L-8 -10","M8 -10L8 10"]},"dc":{"a":[["v","Voltage","V"],["p","Series R","Ω","0"]],"k":"battery cell supply power","n":"DC Source","p":[[0,-40],[0,40]],"u":"V","v":"9","x":"V","y":["M0 -40L0 -6","M0 6L0 40","M-12 -6L12 -6","M-6 6L6 6"]},"dff":{"a":[["v","High level","V"]],"k":"flip flop latch memory divider","l":["D","CK","Q","Q'"],"n":"D flip-flop","p":[[-40,-20],[-40,20],[40,-20],[40,20]],"u":"V","v":"5","x":"FF","y":["M-40 -20L-24 -20","M-40 20L-24 20","M24 -20L40 -20","M32 20L40 20","M-24 -30L24 -30L24 30L-24 30L-24 -30","M-24 12L-14 20L-24 28","M32 20A28 20 4 0 6.2832 0",["M8 -20A4 -20 4 0 6.2832 0",["s","st",1]]]},"fu":{"a":[["v","Rating","A"]],"k":"fuse protection","n":"Fuse","p":[[-40,0],[40,0]],"u":"A","v":"1","x":"F","y":["M-40 0L-20 0","M20 0L40 0","M-20 -6L20 -6L20 6L-20 6L-20 -6",["M-20 0L20 0",["s","bl",0]],["M-20 0L-6 0",["s","bl",1]],["M6 0L20 0",["s","bl",1]]]},"gnd":{"k":"ground earth reference 0v","n":"Ground","p":[[0,0]],"y":["M0 0L0 6","M-10 6L10 6","M-6 10L6 10","M-2 14L2 14"]},"jk":{"a":[["v","High level","V"]],"k":"flip flop latch memory toggle","l":["J","CK","K","Q","Q'"],"n":"JK flip-flop","p":[[-40,-20],[-40,0],[-40,20],[40,-20],[40,20]],"u":"V","v":"5","x":"FF","y":["M-40 -20L-24 -20","M-40 0L-24 0","M-40 20L-24 20","M24 -20L40 -20","M24 20L40 20","M-24 -30L24 -30L24 30L-24 30L-24 -30","M-24 -8L-14 0L-24 8",["M8 -20A4 -20 4 0 6.2832 0",["s","st",1]]]},"l":{"a":[["v","Inductance","H"],["p","Tolerance","%","0"],["q","Initial I","A","0"]],"k":"coil choke inductor henry","n":"Inductor","p":[[-40,0],[40,0]],"u":"H","v":"100m","x":"L","y":["M-40 0L-24 0","M24 0L40 0","M-24 0A-18 0 6 3.1416 0 0","M-12 0A-6 0 6 3.1416 0 0","M0 0A6 0 6 3.1416 0 0","M12 0A18 0 6 3.1416 0 0"]},"lamp":{"a":[["v","Resistance","Ω"],["p","Full-bright power","W","0.5"]],"k":"bulb light","n":"Lamp","p":[[-40,0],[40,0]],"u":"Ω","v":"100","x":"LP","y":["M-40 0L-14 0","M14 0L40 0","M14 0A0 0 14 0 6.2832 0","M-10 -10L10 10","M-10 10L10 -10"]},"ldr":{"a":[["v","Dark resistance","Ω"],["f","Light","%"]],"f":"50","k":"photoresistor light sensor","n":"LDR (light)","p":[[-40,0],[40,0]],"u":"Ω","v":"100k","x":"LDR","y":["M-40 0L-20 0L-15 -8L-5 8L5 -8L15 8L20 0L40 0","M26 0A0 0 26 0 6.2832 0","M-34 -30L-22 -20","M-22 -20L-27 -21","M-22 -20L-23 -25","M-24 -34L-12 -24","M-12 -24L-17 -25","M-12 -24L-13 -29"]},"led":{"N":1,"a":[["p","Color","","red",["red","yellow","green","blue","white"]]],"k":"light emitting indicator","n":"LED","p":[[-40,0],[40,0]],"x":"LED","y":["M-40 0L-8 0","M8 0L40 0","M-8 -10L8 0L-8 10L-8 -10","M8 -10L8 10","M-2 -13L4 -21","M5 -12L11 -20"]},"lg":{"a":[["v","Threshold","V"]],"k":"logic probe","n":"Logic probe","p":[[0,0]],"u":"V","v":"2.5","x":"LG","y":["M0 0L0 8","M7 15A0 15 7 0 6.2832 0"]},"mo":{"a":[["v","Rated voltage","V"],["p","Armature R","Ω","2"]],"k":"motor","n":"DC Motor","p":[[-40,0],[40,0]],"u":"V","v":"12","x":"MOT","y":["M-40 0L-16 0","M16 0L40 0","M16 0A0 0 16 0 6.2832 0",["M7 0L14 0",null,2],["M-3.4976 6.0636L-6.9952 12.1271",null,2],["M-3.5048 -6.0594L-7.0096 -12.1188",null,2]]},"nand":{"a":[["v","High level","V"]],"k":"gate logic","l":["A","B","Y"],"n":"NAND gate","p":[[-40,-20],[-40,20],[40,0]],"v":"5","x":"U","y":["M-40 -20L-20 -20","M-40 20L-20 20","M32 0L40 0","M32 0A29 0 3 0 6.2832 0","M-20 -26L-20 26L0 26A0 0 26 1.5708 -1.5708 1L-20 -26"]},"nb":{"k":"normally closed push break","n":"Push-to-break","p":[[-40,0],[40,0]],"x":"SW","y":["M-40 0L-12 0","M12 0L40 0",["M-12 0L12 0",["s","on",0]],["M-10 -4L10 -4",["s","on",0]],["M0 -4L0 -12",["s","on",0]],["M-10 -14L10 -14",["s","on",1]],["M0 -14L0 -22",["s","on",1]]]},"nm":{"N":1,"a":[["v","Threshold","V"],["p","Gain K","A/V²","0.01"]],"k":"mosfet fet transistor","n":"NMOS","p":[[-40,0],[20,-40],[20,40]],"u":"V","v":"2","x":"M","y":["M-40 0L-12 0","M-12 -14L-12 14","M-6 -16L-6 -6","M-6 -4L-6 4","M-6 6L-6 16","M-6 -11L20 -11L20 -40","M-6 11L20 11L20 40","M-6 0L0 0","M-6 0L0 -3L0 3L-6 0"]},"nor":{"a":[["v","High level","V"]],"k":"gate logic","l":["A","B","Y"],"n":"NOR gate","p":[[-40,-20],[-40,20],[40,0]],"v":"5","x":"U","y":["M-40 -20L-20 -20","M-40 20L-20 20","M32 0L40 0","M32 0A29 0 3 0 6.2832 0","M-20 -26Q14 -26 28 0Q14 26 -20 26Q-8 0 -20 -26"]},"not":{"a":[["v","High level","V"]],"k":"gate logic inverter","l":["A","Y"],"n":"NOT gate","p":[[-40,0],[40,0]],"u":"V","v":"5","x":"U","y":["M-40 0L-14 0","M-14 -14L-14 14L14 0L-14 -14","M21 0A17 0 4 0 6.2832 0","M21 0L40 0"]},"npn":{"N":1,"a":[["p","Gain (hFE)","","100"]],"k":"transistor bjt","n":"NPN","p":[[-40,0],[20,-40],[20,40]],"x":"Q","y":["M-40 0L-8 0","M-8 -16L-8 16","M-8 -6L20 -24L20 -40","M-8 6L20 24L20 40","M5.5 19.5L14.4 20.4L9.9 12.7"]},"ntc":{"a":[["v","R at 25°C","Ω"],["f","Temperature","°C"]],"f":"25","k":"thermistor temperature sensor","n":"NTC thermistor","p":[[-40,0],[40,0]],"u":"Ω","v":"10k","x":"TH","y":["M-40 0L-20 0L-15 -8L-5 8L5 -8L15 8L20 0L40 0","M26 0A0 0 26 0 6.2832 0","M-26 18L26 -18","M26 -18L26 -24"]},"om":{"k":"ohmmeter resistance meter","n":"Ohmmeter","p":[[-40,0],[40,0]],"x":"OM","y":["M-40 0L-16 0","M16 0L40 0","M16 0A0 0 16 0 6.2832 0"]},"op":{"N":1,"a":[["v","Supply rail","V"],["p","Open-loop gain","","10k"]],"k":"opamp operational amplifier comparator","l":["+","−","OUT"],"n":"Op-amp","p":[[-40,-20],[-40,20],[40,0]],"u":"V","v":"12","x":"U","y":["M-40 -20L-20 -20","M-40 20L-20 20","M30 0L40 0","M-20 -30L-20 30L30 0L-20 -30","M-17 -20L-11 -20","M-14 -23L-14 -17","M-17 20L-11 20"]},"or":{"a":[["v","High level","V"]],"k":"gate logic","l":["A","B","Y"],"n":"OR gate","p":[[-40,-20],[-40,20],[40,0]],"u":"V","v":"5","x":"U","y":["M-40 -20L-20 -20","M-40 20L-20 20","M28 0L40 0","M-20 -26Q14 -26 28 0Q14 26 -20 26Q-8 0 -20 -26"]},"os":{"a":[["v","Time/div","s"],["f","Volts/div","V"]],"b":[-54,-64,174,64],"f":"auto","k":"scope oscilloscope waveform","n":"Oscilloscope","p":[[-40,-20],[-40,20]],"u":"s/div","v":"5m","x":"OSC","y":[["@scope"]]},"pm":{"N":1,"a":[["v","Threshold","V"],["p","Gain K","A/V²","0.01"]],"k":"mosfet fet transistor","n":"PMOS","p":[[-40,0],[20,-40],[20,40]],"u":"V","v":"2","x":"M","y":["M-40 0L-12 0","M-12 -14L-12 14","M-6 -16L-6 -6","M-6 -4L-6 4","M-6 6L-6 16","M-6 -11L20 -11L20 -40","M-6 11L20 11L20 40","M-6 0L0 0","M0 0L-6 -3L-6 3L0 0"]},"pnp":{"N":1,"a":[["p","Gain (hFE)","","100"]],"k":"transistor bjt","n":"PNP","p":[[-40,0],[20,-40],[20,40]],"x":"Q","y":["M-40 0L-8 0","M-8 -16L-8 16","M-8 -6L20 -24L20 -40","M-8 6L20 24L20 40","M3.5 18.2L-1 10.5L7.9 11.4"]},"pot":{"a":[["v","Resistance","Ω"],["f","Wiper","%"]],"f":"50","k":"potentiometer variable trimmer volume","n":"Potentiometer","p":[[-40,0],[40,0],[0,-40]],"u":"Ω","v":"10k","x":"RV","y":["M-40 0L-20 0L-15 -8L-5 8L5 -8L15 8L20 0L40 0",["M0 -40L0 -26L{w} -26L{w} -12",null,1],["M{w-4} -17L{w} -11L{w+4} -17",null,1]]},"r":{"a":[["v","Resistance","Ω"],["p","Tolerance","%","0"],["q","Power rating","W","0.25"]],"k":"resistor ohm","n":"Resistor","p":[[-40,0],[40,0]],"u":"Ω","v":"1k","x":"R","y":["M-40 0L-20 0L-15 -8L-5 8L5 -8L15 8L20 0L40 0"]},"reg":{"a":[["v","Output voltage","V"]],"k":"voltage regulator 7805 ldo","l":["IN","GND","OUT"],"n":"Regulator","p":[[-40,-20],[0,40],[40,-20]],"u":"V","v":"5","x":"U","y":["M-40 -20L-24 -20","M24 -20L40 -20","M0 20L0 40","M-24 -30L24 -30L24 20L-24 20L-24 -30"]},"rl":{"a":[["v","Pull-in voltage","V"],["p","Coil R","Ω","100"]],"k":"relay coil contact","n":"Relay","p":[[-40,-20],[-40,20],[40,-20],[40,20]],"u":"V","v":"5","x":"K","y":["M-40 -20L-18 -20","M-40 20L-18 20","M-18 -26L-6 -26L-6 26L-18 26L-18 -26","M-18 -12L-6 -4","M40 -20L22 -20","M40 20L22 20",["M22 -20L14 12",["s","on",0]],["M22 -20L22 20",["s","on",1]]]},"sd":{"N":1,"k":"schottky","n":"Schottky","p":[[-40,0],[40,0]],"x":"D","y":["M-40 0L-8 0","M8 0L40 0","M-8 -10L8 0L-8 10L-8 -10","M8 -10L8 10","M8 -10L4 -7","M8 10L12 7"]},"sg":{"a":[["k","Waveform","","sine",["sine","square","triangle","sawtooth"]],["v","Amplitude","V"],["f","Frequency","Hz"],["p","Offset","V","0"],["q","Duty","%","50"],["s","Series R","Ω","0"]],"f":"1k","k":"function generator clock pulse square triangle","n":"Signal Gen","p":[[0,-40],[0,40]],"u":"V","v":"5","x":"FG","y":["M0 -40L0 -16","M0 16L0 40","M16 0A0 0 16 0 6.2832 0",["M-9 0C-5 -12 -1 -12 0 0C1 12 5 12 9 0",["p","k",["sine"]]],["M-9 4L-9 -4L0 -4L0 4L9 4",["p","k",["square"]]],["M-9 3L-4 -5L4 5L9 -3",["p","k",["triangle"]]],["M-9 4L0 -4L0 4L9 -4",["p","k",["sawtooth"]]]]},"sol":{"N":1,"a":[["v","Open-circuit V","V"],["p","Short-circuit I","A","0.1"],["f","Light","%"]],"f":"80","k":"solar photovoltaic panel","n":"Solar cell","p":[[0,-40],[0,40]],"u":"V","v":"6","x":"PV","y":["M0 -40L0 -6","M0 6L0 40","M-12 -6L12 -6","M-6 6L6 6","M24 0A0 0 24 0 6.2832 0","M-36 -26L-28 -18","M-28 -18L-33 -19","M-28 -18L-29 -23","M-32 -34L-24 -26","M-24 -26L-29 -27","M-24 -26L-25 -31"]},"sp":{"k":"spdt changeover","n":"SPDT switch","p":[[-40,0],[40,-20],[40,20]],"x":"SW","y":["M-40 0L-14 0","M30 -20L40 -20","M30 20L40 20",["M-14 0L30 -18",["s","on",0]],["M-14 0L30 18",["s","on",1]]]},"srf":{"a":[["v","High level","V"]],"k":"flip flop latch set reset memory","l":["S","CK","R","Q","Q'"],"n":"SR flip-flop","p":[[-40,-20],[-40,0],[-40,20],[40,-20],[40,20]],"u":"V","v":"5","x":"FF","y":["M-40 -20L-24 -20","M-40 0L-24 0","M-40 20L-24 20","M24 -20L40 -20","M24 20L40 20","M-24 -30L24 -30L24 30L-24 30L-24 -30","M-24 -8L-14 0L-24 8",["M8 -20A4 -20 4 0 6.2832 0",["s","st",1]]]},"sw":{"k":"switch toggle","n":"Switch","p":[[-40,0],[40,0]],"x":"SW","y":["M-40 0L-14 0","M14 0L40 0",["M-14 0L12 -14",["s","on",0]],["M-14 0L14 0",["s","on",1]]]},"tf":{"a":[["v","High level","V"]],"k":"flip flop toggle divider frequency","l":["T","CK","Q","Q'"],"n":"T flip-flop","p":[[-40,-20],[-40,20],[40,-20],[40,20]],"u":"V","v":"5","x":"FF","y":["M-40 -20L-24 -20","M-40 20L-24 20","M24 -20L40 -20","M24 20L40 20","M-24 -30L24 -30L24 30L-24 30L-24 -30","M-24 12L-14 20L-24 28",["M8 -20A4 -20 4 0 6.2832 0",["s","st",1]]]},"tm":{"b":[-54,-74,54,74],"k":"555 ne555 timer astable monostable oscillator pulse blink","n":"555 timer","p":[[0,-60],[0,60],[-40,-20],[-40,20],[40,20],[40,-20],[-40,-40],[-40,40]],"x":"U","y":["M-40 -40L-28 -40","M-40 -20L-28 -20","M-40 20L-28 20","M-40 40L-28 40","M28 -20L40 -20","M28 20L40 20","M0 -60L0 -54","M0 54L0 60","M-28 -54L28 -54L28 54L-28 54L-28 -54"]},"tr":{"a":[["v","Turns ratio",":1"],["p","Coupling k","","0.995"]],"k":"transformer","n":"Transformer","p":[[-40,-20],[-40,20],[40,-20],[40,20]],"u":":1","v":"2","x":"T","y":["M-40 -20L-16 -20","M-40 20L-16 20","M16 -20L40 -20","M16 20L40 20","M-3 -20L-3 20","M3 -20L3 20","M-16 -20A-16 -10 10 -1.5708 1.5708 0","M-16 0A-16 10 10 -1.5708 1.5708 0","M16 -20A16 -10 10 -1.5708 1.5708 1","M16 0A16 10 10 -1.5708 1.5708 1"]},"vm":{"k":"voltmeter meter","n":"Voltmeter","p":[[-40,0],[40,0]],"x":"VM","y":["M-40 0L-16 0","M16 0L40 0","M16 0A0 0 16 0 6.2832 0"]},"xor":{"a":[["v","High level","V"]],"k":"gate logic","l":["A","B","Y"],"n":"XOR gate","p":[[-40,-20],[-40,20],[40,0]],"v":"5","x":"U","y":["M-40 -20L-20 -20","M-40 20L-20 20","M28 0L40 0","M-25 -26L-15 0L-25 26","M-20 -26Q14 -26 28 0Q14 26 -20 26Q-8 0 -20 -26"]},"zd":{"N":1,"a":[["v","Zener voltage","V"]],"k":"zener regulator reference","n":"Zener","p":[[-40,0],[40,0]],"u":"V","v":"5.1","x":"DZ","y":["M-40 0L-8 0","M8 0L40 0","M-8 -10L8 0L-8 10L-8 -10","M8 -10L8 10","M8 -10L12 -13","M8 10L4 13"]}},"h":"63441bc36aeeef84"};
+const T={},U={},PF={},SX={},KW={},LC={},PL={},GR=SPEC.G,NL=[];
+for(const k in SPEC.P){const s=SPEC.P[k];T[k]={n:s.n,p:s.p,v:s.v,f:s.f};if(s.x)PF[k]=s.x;if(s.u)U[k]=s.u;if(s.a)SX[k]=s.a;if(s.l)PL[k]=s.l;if(s.N)NL.push(k);KW[k]=s.k;
+const p=s.p,t=T[k];t.b=s.b||[Math.min(...p.map(a=>a[0]))-14,Math.min(...p.map(a=>a[1]))-14,Math.max(...p.map(a=>a[0]))+14,Math.max(...p.map(a=>a[1]))+14]}
+for(const k in SPEC.L)LC[k]=SPEC.L[k];
+let lt=0;
+let clip=null,pn=0,pmir=0,mIn=0,sv="",jn=[],pz=0,au=null,rec=[],go={},DL=null,qs=1,qa=1,hist=[],fut=[],vp=0,aw=0,hp='',dtk=0,ds=[],dd=[];let comps=[],wires=[],view={x:60,y:40,z:1},tool='sel',pr=0,run=false,simT=0,raf=0,timer=0,dirtyNet=true,net=null,drag=null,mouse=[0,0],wst=null,dpr=Math.min(devicePixelRatio||1,1.5),col={},hasG=false;
+const rot=(x,y,r)=>{for(let i=0;i<r;i++){const t=x;x=-y;y=t}return[x,y]};
+const pins=c=>T[c.t].p.map(p=>{const q=rot(c.m?-p[0]:p[0],p[1],c.r);return[c.x+q[0],c.y+q[1]]});
+const bbox=c=>{const b=T[c.t].b,q=[[b[0],b[1]],[b[2],b[1]],[b[0],b[3]],[b[2],b[3]]].map(p=>rot(c.m?-p[0]:p[0],p[1],c.r));
+return[c.x+Math.min(...q.map(a=>a[0])),c.y+Math.min(...q.map(a=>a[1])),c.x+Math.max(...q.map(a=>a[0])),c.y+Math.max(...q.map(a=>a[1]))]};
+const mk=(t,x,y,r)=>({m:0,w:0,ang:0,t,x,y,r:t=='os'?0:r||0,v:T[t].v,f:T[t].f,on:0,vp:0,ip:0,is:0,av:0,sq:0,...sd(t)});
+function pv(s){const m=/^\s*([-+]?[\d.]+(?:e[-+]?\d+)?)\s*(meg|[a-zµ])?/i.exec(s+'');if(!m)return NaN;const u=m[2]||'';
+return m[1]*(/^meg$/i.test(u)||u=='M'?1e6:({p:1e-12,n:1e-9,u:1e-6,'µ':1e-6,m:1e-3,k:1e3,g:1e9}[u.toLowerCase()]||1))}
+function fm(x,u){const a=Math.abs(x);if(a<1e-12)return'0 '+u;for(const[k,p]of[[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n']])if(a>=k*.9995)return+(x/k).toPrecision(3)+' '+p+u;return'0 '+u}
+const onSeg=(p,w)=>(w.x1==w.x2&&p[0]==w.x1&&p[1]>=Math.min(w.y1,w.y2)&&p[1]<=Math.max(w.y1,w.y2))||(w.y1==w.y2&&p[1]==w.y1&&p[0]>=Math.min(w.x1,w.x2)&&p[0]<=Math.max(w.x1,w.x2));
+let N,m;
+let SEED=24301;
+const M64=(1n<<64n)-1n;
+function rnd64(seed,i){let z=(BigInt(seed)+BigInt(i+1)*0x9E3779B97F4A7C15n)&M64;z=((z^(z>>30n))*0xBF58476D1CE4E5B9n)&M64;z=((z^(z>>27n))*0x94D049BB133111EBn)&M64;z^=z>>31n;return Number(z>>11n)/2**52-1}
+function build(){const uf=[],pm={},pts=[];
+const id=(a,b)=>{const k=a+','+b;if(pm[k]===undefined){pm[k]=uf.length;uf.push(uf.length);pts.push([a,b])}return pm[k]};
+const f=a=>{while(uf[a]!=a)a=uf[a]=uf[uf[a]];return a},u=(a,b)=>{uf[f(a)]=f(b)};
+comps.forEach(c=>c.id=pins(c).map(p=>id(p[0],p[1])));wires.forEach(w=>{w.a=id(w.x1,w.y1);w.b=id(w.x2,w.y2)});
+const g=uf.length;uf.push(g);comps.forEach(c=>{if(c.t=='gnd')u(c.id[0],g)});
+wires.forEach(w=>{u(w.a,w.b);pts.forEach((p,i)=>{if(onSeg(p,w))u(i,w.a)})});
+const idx={};idx[f(g)]=0;N=1;let nv=0,fmx=0,q=0;
+comps.forEach((c,ci)=>{c.nd=c.id.map(i=>{const r=f(i);if(idx[r]===undefined)idx[r]=N++;return idx[r]});
+c.na=c.nd[0];c.nb=c.nd[1];c.nc=c.nd[2];c.ne=c.nd[3];c.val=pv(c.v);if(!(c.val>0)&&c.t!='dc')c.val=c.t=='tr'?1:1e-3;c.fr=pv(c.f);if(!(c.fr>0))c.fr=50;c.pn=pv(c.p);c.qn=pv(c.q);c.sn=pv(c.s);c.rnd=rnd64(SEED,c.si!==undefined?c.si:ci);if('rcl'.includes(c.t)&&c.pn>0)c.val*=1+c.pn/100*c.rnd;if(c.t=='ldr'||c.t=='ntc'||c.t=='sol')rlive(c);if(!c.init){c.init=1;if(c.t=='c')c.vp=c.qn||0;if(c.t=='l')c.ip=c.qn||0}
+c.row=(c.t=='dc'||c.t=='ac'||c.t=='sg')?nv++:-1;if(c.t=='ac'||c.t=='sg')fmx=Math.max(fmx,c.fr);if(NL.includes(c.t))q=1;if(c.t=='pot')c.pp=Math.min(1,Math.max(0,(pv(c.f)||0)/100));if(c.t=='os'&&!c.ta){c.ta=new Float32Array(NS);c.tb=new Float32Array(NS);c.ti=NS;c.wt=0;c.py=0;c.tl=0}});
+wires.forEach(w=>{const r=idx[f(w.a)];w.nd=r===undefined?-1:r});m=N-1+nv;const gs=groupize(),dt=gs.length?Math.min(...gs.map(g=>g.dt)):1e-4*qs;
+net={fail:0,lag:0,mv:0,md:0,bn:0,dt,q,t:net?net.t:0};farm.gs=gs;farmInv();hasG=comps.some(c=>c.t=='gnd');ds=statics();dd=[];render();jn=junc()}
+/* ---------- multi-core simulation engine ----------
+The circuit is cut into independent sections (parts that only touch each other
+through Ground).  Every section is its own small matrix problem, so the sections
+can be solved on different CPU cores.  Engine() is the code that runs inside each
+Web Worker (it is also used directly on the page as a single-thread fallback). */
+function Engine(post){
+const{NS,LC,SF}=SIMK,PI=Math.PI;
+let N,m,A,z,x,xp,V,comps,net,sc=0,groups=[],gmap={};
+const S=(p,q,r,s,g)=>{if(p){if(r)A[(p-1)*m+r-1]+=g;if(s)A[(p-1)*m+s-1]-=g}if(q){if(r)A[(q-1)*m+r-1]-=g;if(s)A[(q-1)*m+s-1]+=g}};
+function dst(an,ca,Is,Vt){const v0=Math.min(V[an]-V[ca],Vt*Math.log(100/Is)),ef=Math.exp(v0/Vt),i0=Is*(ef-1),g=Is/Vt*ef;S(an,ca,an,ca,g);I(an,ca,-(i0-g*v0))}
+function tS(r,B,C,E,s,q0,qx,qy){if(r){const o=(r-1)*m;if(B)A[o+B-1]+=qx+qy;if(E)A[o+E-1]-=qx;if(C)A[o+C-1]-=qy;z[r-1]-=s*q0}}
+const I=(a,b,i)=>{if(a)z[a-1]+=i;if(b)z[b-1]-=i};
+function solve(){for(let i=0;i<m;i++){let p=i,mx=Math.abs(A[i*m+i]);for(let r=i+1;r<m;r++){const a=Math.abs(A[r*m+i]);if(a>mx){mx=a;p=r}}
+if(mx<1e-30)continue;if(p!=i){for(let k=i;k<m;k++){const t=A[i*m+k];A[i*m+k]=A[p*m+k];A[p*m+k]=t}const t=z[i];z[i]=z[p];z[p]=t}
+const d=A[i*m+i];for(let r=i+1;r<m;r++){const f=A[r*m+i]/d;if(f){for(let k=i;k<m;k++)A[r*m+k]-=f*A[i*m+k];z[r]-=f*z[i]}}}
+for(let i=m-1;i>=0;i--){let s=z[i];for(let k=i+1;k<m;k++)s-=A[i*m+k]*x[k];x[i]=A[i*m+i]?s/A[i*m+i]:0}}
+function step(){sc++;const dt=net.dt;net.t+=dt;
+for(let it=0;it<(net.q?40:1);it++){A.fill(0);z.fill(0);for(let n=1;n<N;n++)A[(n-1)*m+n-1]=1e-9;xp.set(x);
+for(const c of comps){const a=c.na,b=c.nb,d=c.nc,e=c.ne,v=c.val;switch(c.t){
+case'r':case'lamp':case'bz':S(a,b,a,b,1/v);break;case'sw':case'bt':if(c.on)S(a,b,a,b,1e3);break;
+case'mo':{const g=1/(c.pn>0?c.pn:2),E=v/300*c.w;S(a,b,a,b,g);I(a,b,g*E);break}
+case'sp':{const o=c.on?d:b;S(a,o,a,o,1e3);break}
+case'br':dst(a,d,1e-14,.02585);dst(b,d,1e-14,.02585);dst(e,a,1e-14,.02585);dst(e,b,1e-14,.02585);break;
+case'sol':{const Isc=c.pn>0?c.pn:.1;dst(a,b,Isc*1e-9,v/20.7);I(a,b,Isc*c.pp);break}
+case'ctr':{for(let k=0;k<4;k++){const o=c.nd[2+k];S(o,0,o,0,.02);I(o,0,.02*((((c.cnt|0)>>k)&1)?v:0))}break}
+case'ldr':case'ntc':S(a,b,a,b,1/c.rv);break;
+case'nb':if(!c.on)S(a,b,a,b,1e3);break;
+case'jk':case'srf':case'tf':{const o=c.t=='tf'?2:3,q=c.nd[o],qb=c.nd[o+1];S(q,0,q,0,.02);I(q,0,.02*(c.st?v:0));S(qb,0,qb,0,.02);I(qb,0,.02*(c.st?0:v));break}
+case'dff':{S(d,0,d,0,.02);I(d,0,.02*(c.st?v:0));S(e,0,e,0,.02);I(e,0,.02*(c.st?0:v));break}
+case'reg':{const vt=Math.max(0,Math.min(v,V[a]-V[b]-2)),io=10*(vt-(V[d]-V[b]));S(d,b,d,b,10);I(d,b,10*vt);I(a,b,-io);break}
+case'fu':if(!c.bl)S(a,b,a,b,100);break;
+case'rl':S(a,b,a,b,1/(c.pn>0?c.pn:100));if(c.on)S(d,e,d,e,1e3);break;
+case'and':case'or':case'not':case'nand':case'nor':case'xor':{const hi=V[a]>v/2,hb=V[b]>v/2,o=c.t=='not'?!hi:c.t=='and'?hi&&hb:c.t=='or'?hi||hb:c.t=='nand'?!(hi&&hb):c.t=='nor'?!(hi||hb):hi!=hb,ot=c.t=='not'?b:d;S(ot,0,ot,0,.02);I(ot,0,.02*(o?v:0));break}case'am':S(a,b,a,b,1e3);break;case'vm':S(a,b,a,b,1e-7);break;
+case'om':I(a,b,1e-3);break;case'c':S(a,b,a,b,v/dt);I(a,b,v/dt*c.vp);break;case'l':S(a,b,a,b,dt/v);I(a,b,-c.ip);break;
+case'tr':S(a,b,a,b,c.g[0]);S(d,e,d,e,c.g[2]);S(a,b,d,e,c.g[1]);S(d,e,a,b,c.g[1]);I(a,b,-c.ip);I(d,e,-c.is);break;
+case'tm':{const n=c.nd,vc=n[0],gd=n[1],ds=n[4],ou=n[5],rs=n[6],ct=n[7];S(vc,ct,vc,ct,2e-4);S(ct,gd,ct,gd,1e-4);S(vc,rs,vc,rs,1e-6);S(ou,0,ou,0,.02);I(ou,0,.02*(V[gd]+(c.qs?V[vc]-V[gd]:0)));if(!c.qs)S(ds,gd,ds,gd,.05);break}
+case'cs':I(a,b,v);break;
+case'pot':S(a,d,a,d,1/(v*c.pp+1e-3));S(d,b,d,b,1/(v*(1-c.pp)+1e-3));break;
+case'd':case'sd':case'led':case'zd':{const nn=c.t=='led'?2:1,Is=c.t=='led'?(LC[c.p]||LC.red)[0]:c.t=='sd'?1e-8:1e-14,Vt=.02585*nn,lo=c.t=='zd'?-(v-.65+.98):-1e3;let v0=Math.max(lo,Math.min(V[a]-V[b],Vt*Math.log(100/Is))),ef=Math.exp(v0/Vt),i0=Is*(ef-1),g=Is/Vt*ef;
+if(c.t=='zd'){const er=Math.exp((-v0-v+.65)/.02585);i0-=Is*(er-1);g+=Is/.02585*er}S(a,b,a,b,g);I(a,b,-(i0-g*v0));c.cur=i0+g*(V[a]-V[b]-v0);break}
+case'op':{const vd=V[a]-V[b],G=c.pn>0?c.pn:1e4,th=Math.tanh(Math.max(-20,Math.min(20,G*vd/v))),k=G*(1-th*th),Go=.1;if(d){const r=(d-1)*m;A[r+d-1]+=Go;if(a)A[r+a-1]-=Go*k;if(b)A[r+b-1]+=Go*k;z[d-1]+=Go*(v*th-k*vd)}break}
+case'nm':case'pm':{const s=c.t=='nm'?1:-1,gg=a,dd=b,ss=d,vgs=s*(V[gg]-V[ss]),vds=s*(V[dd]-V[ss]),vo=vgs-v,be=c.pn>0?c.pn:.01;let id=0,gm=0,gd=0;
+if(vo>0){if(vds<vo){id=be*(vo*vds-vds*vds/2);gm=be*vds;gd=be*(vo-vds)}else{id=be/2*vo*vo;gm=be*vo}}
+const q0=s*(id-gm*vgs-gd*vds),rw=(r,sg)=>{if(r){const o=(r-1)*m;if(gg)A[o+gg-1]+=sg*gm;if(dd)A[o+dd-1]+=sg*gd;if(ss)A[o+ss-1]-=sg*(gm+gd);z[r-1]-=sg*q0}};rw(dd,1);rw(ss,-1);c.cur=s*id;break}
+case'dc':case'ac':case'sg':{const r=N-1+c.row,E=c.t=='dc'?v:c.t=='sg'?(c.pn||0)+v*wv(c.k,(c.fr*net.t)%1,(c.qn>0?c.qn:50)/100):(c.pn||0)+v*Math.sin(2*PI*c.fr*net.t+(c.qn||0)*PI/180);if(a){A[(a-1)*m+r]+=1;A[r*m+a-1]+=1}if(b){A[(b-1)*m+r]-=1;A[r*m+b-1]-=1}z[r]=E;A[r*m+r]-=(c.t=='dc'?c.pn:c.sn)||0;break}
+case'npn':case'pnp':{const s=c.t=='npn'?1:-1,B=a,C=b,Em=d;let be=Math.min(s*(V[B]-V[Em]),.9),bc=Math.min(s*(V[B]-V[C]),.9);
+const Is=1e-14,Vt=.02585,ef=Math.exp(be/Vt),er=Math.exp(bc/Vt),i1=Is*(ef-1),i2=Is*(er-1),gf=Is/Vt*ef,gr=Is/Vt*er;
+const Ic=i1-2*i2,bf=c.pn>0?c.pn:100,Ib=i1/bf+i2,cx_=gf,cy_=-2*gr,bx_=gf/bf,by_=gr,c0=Ic-cx_*be-cy_*bc,b0=Ib-bx_*be-by_*bc;
+tS(C,B,C,Em,s,c0,cx_,cy_);tS(B,B,C,Em,s,b0,bx_,by_);tS(Em,B,C,Em,s,-c0-b0,-cx_-bx_,-cy_-by_);c.cur=s*Ic;break}}}
+solve();let md=0;for(let i=0;i<m;i++){if(x[i]!=x[i])x.fill(0);md=Math.max(md,Math.abs(x[i]-xp[i]))}
+for(let n=1;n<N;n++){V[n]=x[n-1];if(Math.abs(V[n])>net.mv){net.mv=Math.abs(V[n]);net.mn=n}}if(md<2e-5)break;if(it==39&&net.q){net.fail++;net.md=md}}
+const k=net.k;for(const c of comps){const a=c.na,b=c.nb,d=c.nc,e=c.ne,v=V[a]-V[b];
+if(c.t=='c')c.vp=v;else if(c.t=='l')c.ip+=dt/c.val*v;else if(c.t=='tr'){const v2=V[d]-V[e];c.ip+=c.g[0]*v+c.g[1]*v2;c.is+=c.g[1]*v+c.g[2]*v2}
+else if(c.t=='vm'||c.t=='am'||c.t=='om'||c.t=='lg'){const r=c.t=='vm'?v:c.t=='lg'?V[a]:v*1e3;c.av=c.av*k+r*(1-k);c.sq=c.sq*k+r*r*(1-k)}
+if(c.t=='lamp')c.gl=(c.gl||0)*k+Math.min(1,v*v/c.val/(c.pn>0?c.pn:.5))*(1-k);else if(c.t=='ctr'){const ck=V[a]>c.val/2;if(V[b]>c.val/2)c.cnt=0;else if(ck&&!c.pc)c.cnt=((c.cnt|0)+1)&15;c.pc=ck}else if(c.t=='jk'||c.t=='srf'||c.t=='tf'){const n=c.nd,h=i=>V[n[i]]>c.val/2,ck=h(1);if(ck&&!c.pc){const a1=h(0),a2=h(2);if(c.t=='tf'){if(a1)c.st=c.st?0:1}else if(c.t=='jk'){if(a1&&a2)c.st=c.st?0:1;else if(a1)c.st=1;else if(a2)c.st=0}else{if(a1&&!a2)c.st=1;else if(a2&&!a1)c.st=0}}c.pc=ck}
+else if(c.t=='tm'){const n=c.nd,g=V[n[1]],vc=V[n[7]]-g,t1=V[n[2]]-g,t2=V[n[3]]-g;if(V[n[0]]-g<1.5||V[n[6]]-g<.7)c.qs=0;else{if(t2>vc)c.qs=0;if(t1<vc/2)c.qs=1}}else if(c.t=='bz')c.bv=(c.bv||0)*k+Math.abs(v)*(1-k);else if(c.t=='dff'){const ck=V[b]>c.val/2;if(ck&&!c.pc)c.st=V[a]>c.val/2?1:0;c.pc=ck}else if(c.t=='fu'&&!c.bl){const i=v*100;c.ht=Math.max(0,(c.ht||0)+dt*((i/c.val)**2-1)*20);if(c.ht>1)c.bl=1}else if(c.t=='rl'){const av=Math.abs(v);if(av>c.val)c.on=1;else if(av<c.val*.4)c.on=0}
+else if(c.t=='mo'){const K=c.val/300;c.w+=dt*((v-K*c.w)/(c.pn>0?c.pn:2)/(.165*K)-.303*c.w);c.ang+=c.w*dt*.05}else if(c.t=='led')c.gl=(c.gl||0)*k+Math.min(1,Math.max(0,c.cur||0)/.01)*(1-k);
+else if(c.t=='os'&&net.t>=c.nt){c.nt=Math.max(c.nt+c.iv,net.t);const y=V[a];if(c.ti>=NS){c.wt++;if((c.py<=c.tl&&y>c.tl)||c.wt>NS*2){c.ti=0;c.wt=0}}if(c.ti<NS){c.ta[c.ti]=y;c.tb[c.ti]=V[b];c.ti++}c.py=y}
+if(!(sc&3))pk(c,v)}}
+function pk(c,v){const t=c.t,av=v<0?-v:v;let i=0,p=0,vm=av;
+if(t=='r'||t=='lamp'){i=av/c.val;p=av*i}else if(t=='c'){}else if(t=='l')i=Math.abs(c.ip);else if(t=='tr')i=Math.max(Math.abs(c.ip),Math.abs(c.is));
+else if(t=='d'||t=='sd'||t=='led'||t=='zd'){i=Math.abs(c.cur||0);p=av*i;vm=v<0?av:0}
+else if(t=='npn'||t=='pnp'||t=='nm'||t=='pm'){vm=Math.abs(V[c.nb]-V[c.nc]);i=Math.abs(c.cur||0);p=vm*i}
+else if(c.row>=0)i=Math.abs(x[N-1+c.row]);else if(t=='am')i=av*1e3;else return;
+if(i>(c.pi||0))c.pi=i;c.ia=(c.ia||0)*net.kp+i*(1-net.kp);if(vm>(c.pv||0))c.pv=vm;c.pw=(c.pw||0)*net.kp+p*(1-net.kp)}
+function wv(k,p,d){return k=='square'?(p<d?1:-1):k=='triangle'?(p<.5?4*p-1:3-4*p):k=='sawtooth'?2*p-1:Math.sin(2*PI*p)}
+function setup(P){const cs=P.comps;let nv=0;
+cs.forEach(c=>{c.na=c.nd[0];c.nb=c.nd[1];c.nc=c.nd[2];c.ne=c.nd[3];c.row=(c.t=='dc'||c.t=='ac'||c.t=='sg')?nv++:-1});
+const dt=P.dt,M=P.N-1+nv;
+cs.forEach(c=>{if(c.t=='os'){c.iv=Math.max(dt,c.val*10/NS);c.nt=0}if(c.t=='tr'){const n=c.val,L2=1/(n*n),Mu=(c.pn>0&&c.pn<1?c.pn:.995)*Math.sqrt(L2),d=L2-Mu*Mu;c.g=[dt*L2/d,-dt*Mu/d,dt/d]}});
+return{id:P.gid,comps:cs,gn:P.gn,N:P.N,m:M,A:new Float64Array(M*M),z:new Float64Array(M),x:new Float64Array(M),xp:new Float64Array(M),V:new Float64Array(P.N),
+net:{fail:0,lag:0,mv:0,md:0,mn:0,dt,q:P.q,k:Math.exp(-dt/.04),kp:Math.exp(-4*dt/.3),t:P.t}}}
+function use(G){comps=G.comps;N=G.N;m=G.m;A=G.A;z=G.z;x=G.x;xp=G.xp;V=G.V;net=G.net}
+function pack(G,scan){const n=SF.length,cs=G.comps,a=new Float64Array(cs.length*n),sp=[];
+for(let i=0;i<cs.length;i++){const c=cs[i],o=i*n;
+for(let j=0;j<n;j++){const k=SF[j];a[o+j]=k=='ix'?(c.row>=0?x[N-1+c.row]:0):(+c[k]||0)}
+if(c.t=='os'){let m1=1e9,x1=-1e9;for(let q=0;q<NS;q++){const p=c.ta[q];if(p<m1)m1=p;if(p>x1)x1=p}c.tl=x1-m1>1e-3?(x1+m1)/2:0;sp.push([i,c.ta,c.tb])}
+if(scan)c.pi=c.pv=0}
+return{gid:G.id,t:net.t,a,sp}}
+return function(msg){
+if(msg.k=='load'){groups=msg.groups.map(setup);gmap={};groups.forEach(G=>gmap[G.id]=G)}
+else if(msg.k=='stop'){groups=[];gmap={}}
+else if(msg.k=='poke'){const G=gmap[msg.gid];if(G){const c=G.comps[msg.li];for(const k in msg.d)if(msg.d[k]!==undefined)c[k]=msg.d[k]}}
+else if(msg.k=='adv'){const t0=performance.now(),s0=sc,out=[];let lag=0,fail=0,md=0,mv=0,bn=0;
+for(const G of groups){use(G);const tg=msg.tg;let i=0;
+while(net.t<tg){step();if((++i&7)==0&&performance.now()-t0>msg.bud)break}
+if(net.t<tg-net.dt)lag=1;
+if(net.fail){fail+=net.fail;md=net.md;net.fail=0}
+if(net.mv>mv){mv=net.mv;bn=G.gn[net.mn]|0}
+out.push(pack(G,msg.sc));if(msg.sc)net.mv=0}
+post({k:'res',gen:msg.gen,g:out,busy:performance.now()-t0,steps:sc-s0,lag,fail,md,mv,bn})}}}
+const WBUD=30;
+const farm={ws:[],mode:(typeof Worker=='function'&&typeof Blob=='function'&&typeof URL=='function'&&URL.createObjectURL)?'worker':'inline',gen:0,pend:0,dirty:1,gs:[],gt:[],act:[],eng:null,url:'',alive:0,t0:0,sf:0,wb:0,rl:0,note:''};
+const nwFor=n=>farm.mode=='worker'?Math.max(1,Math.min(CORES-1,16,n)):1;
+function farmInfo(){const n=farm.gs.length,w=nwFor(n);return(n?', '+n+' independent section'+(n>1?'s':'')+' on '+w+' thread'+(w>1?'s':''):'')+(farm.note?'. '+farm.note:'')}
+function groupize(){const uf=new Int32Array(N);for(let i=0;i<N;i++)uf[i]=i;
+const f=a=>{while(uf[a]!=a)a=uf[a]=uf[uf[a]];return a},gm=new Map(),out=[];
+comps.forEach(c=>{let r=-1;for(const k of c.nd)if(k){if(r<0)r=k;else uf[f(k)]=f(r)}});
+comps.forEach(c=>{c.gi=-1;let r=-1;for(const k of c.nd)if(k){r=f(k);break}if(r<0)return;
+let g=gm.get(r);if(!g){g={id:out.length,comps:[],nodes:new Set()};gm.set(r,g);out.push(g)}
+c.gi=g.id;c.li=g.comps.length;g.comps.push(c);c.nd.forEach(k=>{if(k)g.nodes.add(k)})});
+out.forEach(g=>{g.gn=[0].concat([...g.nodes].sort((a,b)=>a-b));g.loc=new Map();g.gn.forEach((k,i)=>g.loc.set(k,i));g.N=g.gn.length;
+let nv=0,fmx=0,tm=0,q=0;g.comps.forEach(c=>{if(c.t=='dc'||c.t=='ac'||c.t=='sg')nv++;if(c.t=='ac'||c.t=='sg')fmx=Math.max(fmx,c.fr);if(c.t=='tm')tm=1;if(NL.includes(c.t))q=1});
+g.q=q;g.dt=Math.max(2e-7,fmx?1/(fmx*Math.max(60,Math.ceil(6e3/fmx))):tm?2e-5:1e-4)*qs;
+const M=g.N-1+nv;g.cost=(M*M*M/3+8*M*M+60*g.comps.length)*(q?5:1)/g.dt});
+return out}
+function farmInv(){farm.gen++;farm.pend=0;farm.dirty=1}
+function farmStop(){farmInv();farm.ws.forEach(w=>w.postMessage({k:'stop'}));if(farm.eng)farm.eng({k:'stop'})}
+function farmFail(e){if(farm.mode!='worker')return;farm.mode='inline';farm.note='Multi-core unavailable ('+(e||'workers blocked')+'): running on one thread';
+farm.ws.forEach(w=>{try{w.terminate()}catch(_){}});farm.ws=[];farm.eng=null;farmInv();if(net){try{ds=statics();render()}catch(_){}}}
+function farmSpawn(n){try{if(!farm.url)farm.url=URL.createObjectURL(new Blob(['const SIMK='+JSON.stringify(SIMK)+';const E=('+Engine+')(function(m){self.postMessage(m)});self.onmessage=function(e){E(e.data)};'],{type:'text/javascript'}));
+while(farm.ws.length<n){const w=new Worker(farm.url);w.onmessage=e=>onRes(e.data);w.onerror=e=>{if(e&&e.preventDefault)e.preventDefault();farmFail(e&&e.message)};farm.ws.push(w)}}catch(e){farmFail(e&&e.message)}}
+function farmPayload(g){return{gid:g.id,N:g.N,dt:g.dt,q:g.q,t:net.t,gn:g.gn,comps:g.comps.map(c=>{const r=Object.assign({},c);r.nd=c.nd.map(k=>k?g.loc.get(k):0);r.ft=0;r.sel=0;return r})}}
+function farmLoad(){farm.gen++;farm.pend=0;const gs=farm.gs;farm.gt=gs.map(()=>net.t);farm.act=[];
+if(!gs.length){farm.dirty=0;return}
+if(farm.mode=='worker')farmSpawn(nwFor(gs.length));
+if(farm.mode!='worker'&&!farm.eng)farm.eng=Engine(onRes);
+farm.dirty=0;
+const nw=nwFor(gs.length),ld=new Float64Array(nw),as=Array.from({length:nw},()=>[]);
+gs.slice().sort((a,b)=>b.cost-a.cost).forEach(g=>{let k=0;for(let i=1;i<nw;i++)if(ld[i]<ld[k])k=i;ld[k]+=g.cost;as[k].push(g)});
+as.forEach((l,i)=>{if(!l.length)return;const send=farm.mode=='worker'?(m=>farm.ws[i].postMessage(m)):(m=>farm.eng(m));
+l.forEach(g=>g.send=send);farm.act.push({send});send({k:'load',gen:farm.gen,groups:l.map(farmPayload)})});
+if(farm.mode=='worker')farm.ws.forEach((w,i)=>{if(i>=nw)w.postMessage({k:'stop'})})}
+function farmPump(){if(farm.dirty)farmLoad();if(!farm.gs.length)return;const now=performance.now();
+if(farm.pend>0){if(farm.mode=='worker'&&!farm.alive&&now-farm.t0>4000)farmFail('workers did not start');return}
+const el=Math.min(now-lt,100),tg=net.t+el/1000*sp();lt=now;farm.t0=now;farm.sf=++dtk%15==0;
+farm.pend=farm.act.length;const gen=farm.gen,bud=farm.mode=='worker'?WBUD:BUD,sf=farm.sf;
+farm.act.forEach(a=>{if(gen==farm.gen)a.send({k:'adv',gen,tg,bud,sc:sf})});
+if(farm.mode!='worker')bz+=performance.now()-now}
+function onRes(m){if(m.gen!==farm.gen)return;const r0=performance.now(),n=SF.length;farm.alive=1;
+for(const r of m.g){const g=farm.gs[r.gid];if(!g)continue;farm.gt[r.gid]=r.t;const a=r.a;
+g.comps.forEach((c,i)=>{const o=i*n;for(let j=0;j<n;j++){const k=SF[j];if(k=='on'&&c.t!='rl')continue;c[k]=a[o+j]}});
+r.sp.forEach(s=>{const c=g.comps[s[0]];c.ta.set(s[1]);c.tb.set(s[2])})}
+farm.rl|=m.lag;net.fail+=m.fail;if(m.fail)net.md=m.md;if(m.mv>net.mv){net.mv=m.mv;net.bn=m.bn}sc+=m.steps;farm.wb+=m.busy;
+if(--farm.pend<=0){farm.pend=0;net.t=Math.min(...farm.gt);if(farm.rl)net.lag++;farm.rl=0;if(farm.sf)dyn();dirty()}
+if(farm.mode=='worker')bz+=performance.now()-r0}
+function poke(c){if(!run||!(c.gi>=0))return;const g=farm.gs[c.gi];if(!g||!g.send)return;const d={};
+if(c.t=='sw'||c.t=='bt'||c.t=='nb'||c.t=='sp')d.on=c.on;if(c.pp!==undefined)d.pp=c.pp;if(c.rv!==undefined)d.rv=c.rv;g.send({k:'poke',gid:g.id,li:c.li,d})}
+function rd(c){if(c.t=='mo')return Math.round(c.w*9.549)+' rpm';if(c.t=='lg')return c.av>c.val?'HIGH':'LOW';const av=c.av,rm=Math.sqrt(c.sq),ac=Math.sqrt(Math.max(0,c.sq-av*av));
+if(c.t=='om')return av>1e8?'OL':fm(av,'Ω');const u=c.t=='vm'?'V':'A';return ac>.02*rm&&ac>1e-6?fm(rm,u)+' rms':fm(av,u)}
+const CORES=navigator.hardwareConcurrency||1,BUD=CORES>1?22:10;
+function tick(){if(dirtyNet){build();dirtyNet=false}if(!run||pz||!net||!m)return;farmPump()}
+function setRun(r){const was=run;run=r;pz=0;lt=performance.now();if(r&&!was){comps.forEach(c=>{c.on0=c.on});clrF();farmInv()}if(was&&!r){farmStop();resetSim();dd=[];if(net)render();if(au)snd(0,0)}if(r)setTool('sel');document.querySelectorAll('aside button,#wb,#rot,#del,#un,#re,#ex,#cp,#ps,#mh,#mv').forEach(b=>b.disabled=r);buildPal();selUI();clearInterval(timer);if(r)timer=setInterval(tick,33);$('run').textContent=r?'Pause':'Run';$('run').className=r?'on':'';dirty()}
+const dirty=()=>{if(!raf)raf=requestAnimationFrame(draw)};
+function Pp(a){cx.moveTo(a[0],a[1]);for(let i=2;i<a.length;i+=2)cx.lineTo(a[i],a[i+1])}
+const PC={};
+function pcmds(d){return PC[d]||(PC[d]=d.match(/[MLACQ][^MLACQ]*/g).map(s=>[s[0],...s.slice(1).trim().split(' ').map(Number)]))}
+function pwip(d,w){return pcmds(d.replace(/\{w([+-]\d+)?\}/g,(m,o)=>w+(o?+o:0)))}
+function lok(c,w){const t=w[0],k=w[1];if(t=='s')return(+c[k]||0)==w[2];if(t=='b')return((c[k]|0)>>w[2])&1;const o=(SX[c.t].find(e=>e[0]==k)||[])[4],v=o&&!w[2].includes(c[k])&&!o.includes(c[k])?o[0]:c[k];return w[2].includes(v)}
+function sym(c){const t=c.t;cx.beginPath();
+for(const L of SPEC.P[t].y){let d=L,w=null,fl=0;if(typeof L!='string'){if(L[0]=='@scope'){osc(c);continue}d=L[0];w=L[1];fl=L[2]|0}
+if(w&&!lok(c,w))continue;
+let cm;if(fl==1){const x=-30+60*Math.min(1,Math.max(0,(pv(c.f)||0)/100));cm=pwip(d,x)}else cm=pcmds(d);
+if(fl==2){cx.save();cx.rotate(c.ang)}
+for(const m of cm)m[0]=='M'?cx.moveTo(m[1],m[2]):m[0]=='L'?cx.lineTo(m[1],m[2]):m[0]=='A'?cx.arc(m[1],m[2],m[3],m[4],m[5],m[6]):m[0]=='C'?cx.bezierCurveTo(m[1],m[2],m[3],m[4],m[5],m[6]):cx.quadraticCurveTo(m[1],m[2],m[3],m[4]);
+if(fl==2)cx.restore()}
+cx.stroke();if(t=='tm')tml(c)}
+function pinLbl(c){const L=PL[c.t];if(!L)return;cx.fillStyle=c.sel?col.a:col.c;cx.font='8px system-ui';cx.textAlign='center';cx.textBaseline='middle';
+pins(c).forEach((p,i)=>{const q=T[c.t].p[i],ld=Math.abs(q[0])>=40?[q[0]>0?-1:1,0]:[0,q[1]>0?-1:1],s=rot(c.m?-ld[0]:ld[0],ld[1],c.r);let x=p[0]+s[0]*9,y=p[1]+s[1]*9;if(s[1]==0)y-=6;else x+=8;cx.fillText(L[i],x,y)});cx.textBaseline='alphabetic'}
+function tml(c){cx.fillStyle=c.sel?col.a:col.c;cx.textBaseline='middle';[['RST',-15,-40,8],['TRG',-15,-20,8],['THR',-15,20,8],['CTL',-15,40,8],['OUT',15,-20,8],['DIS',15,20,8],['VCC',0,-46,8],['GND',0,47,8],['555',0,0,13]].forEach(([t,x,y,f])=>{cx.save();cx.translate(x,y);if(c.m)cx.scale(-1,1);cx.rotate(-c.r*PI/2);cx.font=(f>9?'bold ':'')+f+'px system-ui';cx.textAlign='center';cx.fillText(t,0,0);cx.restore()});cx.textBaseline='alphabetic'}
+function drawComp(c,ghost){cx.save();cx.translate(c.x,c.y);cx.rotate(c.r*PI/2);if(c.m)cx.scale(-1,1);cx.strokeStyle=c.sel?col.a:col.c;cx.lineWidth=2;
+if(ghost)cx.globalAlpha=.5;if(c.gl>.03){cx.fillStyle=c.t=='led'?'rgba('+(LC[c.p]||LC.red)[1]+','+c.gl*.85+')':'rgba(255,210,60,'+c.gl*.85+')';cx.beginPath();cx.arc(0,0,c.t=='led'?18:16,0,2*PI);cx.fill()}sym(c);
+if(c.t=='lg'){cx.fillStyle=c.av>c.val?'#e11':col.gr;cx.fill()}cx.restore();if(!ghost)pinLbl(c);
+cx.fillStyle=c.sel?col.a:col.c;cx.font='12px system-ui,sans-serif';cx.textAlign='center';
+const L={vm:'V',am:'A',om:'Ω',mo:'M'}[c.t];if(L){cx.font='bold 14px system-ui';cx.fillText(L,c.x,c.y+5)}
+const b=bbox(c);cx.font='11px system-ui';
+if(!ghost)lbl(c,b,L);if(1);
+else if(c.v!==undefined&&!ghost&&c.t!='gnd')cx.fillText(c.v+({ac:'V '+c.f+'Hz',dc:'V',tr:':1',os:'s/div',mo:'V',and:'V',or:'V',not:'V',zd:'V',cs:'A',lamp:'Ω',nm:'V',pm:'V',op:'V',pot:'Ω '+c.f+'%'}[c.t]||''),c.x,b[3]+10);
+if(ghost)return;cx.fillStyle=col.w;for(const p of pins(c)){cx.beginPath();cx.arc(p[0],p[1],2.5,0,2*PI);cx.fill()}}
+function draw(){raf=0;const d0=performance.now();cx.setTransform(1,0,0,1,0,0);cx.fillStyle=col.bg;cx.fillRect(0,0,cv.width,cv.height);
+cx.setTransform(dpr*view.z,0,0,dpr*view.z,dpr*view.x,dpr*view.y);const z=view.z,st=z<.7?G*2:G;
+cx.fillStyle=col.gr;for(let gx=Math.floor(-view.x/z/st)*st;gx<(cv.width/dpr-view.x)/z;gx+=st)for(let gy=Math.floor(-view.y/z/st)*st;gy<(cv.height/dpr-view.y)/z;gy+=st)cx.fillRect(gx-.75,gy-.75,1.5,1.5);
+cx.lineWidth=2;cx.lineCap='round';const deg={};
+for(const w of wires){cx.strokeStyle=w.sel?col.a:col.w;cx.beginPath();Pp([w.x1,w.y1,w.x2,w.y2]);cx.stroke();for(const k of[w.x1+','+w.y1,w.x2+','+w.y2])deg[k]=(deg[k]||0)+1}
+for(const c of comps)for(const p of pins(c)){const k=p[0]+','+p[1];deg[k]=(deg[k]||0)+1}
+cx.fillStyle=col.w;for(const p of jn){cx.beginPath();cx.arc(p[0],p[1],4.5,0,2*PI);cx.fill()}
+for(const c of comps)drawComp(c);drawF();
+if(!run&&tool=='sel'&&!drag){const p=pinAt(mouse[0],mouse[1]);if(p){cx.strokeStyle=col.a;cx.lineWidth=1.5;cx.beginPath();cx.arc(p[0],p[1],7,0,2*PI);cx.stroke()}}
+if(tool=='wire'&&wst){const q=[sn(mouse[0]),sn(mouse[1])];cx.strokeStyle=col.a;cx.setLineDash([4,4]);cx.beginPath();Pp([wst[0],wst[1],q[0],wst[1],q[0],q[1]]);cx.stroke();cx.setLineDash([])}
+else if(T[tool]){const g=mk(tool,sn(mouse[0]),sn(mouse[1]),pr);g.m=tool=='os'?0:pmir;drawComp(g,1)}
+if(drag&&drag.k=='box'){const win=drag.x1>=drag.x0;cx.fillStyle=win?'rgba(37,99,235,.15)':'rgba(16,160,70,.15)';cx.strokeStyle=win?'#2563eb':'#10a046';cx.lineWidth=1.2/z;cx.setLineDash(win?[]:[6/z,4/z]);
+cx.fillRect(drag.x0,drag.y0,drag.x1-drag.x0,drag.y1-drag.y0);cx.strokeRect(drag.x0,drag.y0,drag.x1-drag.x0,drag.y1-drag.y0);cx.setLineDash([])}
+const ns=comps.filter(c=>c.sel).length+wires.filter(w=>w.sel).length;
+$('st').textContent=(run?(pz?'⏸ PAUSED - press Stop to edit | ':'▶ RUNNING - editing locked | '):'■ STOPPED - edit mode | ')+(hasG||!comps.length?'':'⚠ Add a Ground. ')+'t = '+fm(net?net.t:0,'s')+'  |  nodes: '+(net?N:0)+'  |  selected: '+ns+'  |  Drag left→right = window select, right→left = crossing select (Shift adds)';bz+=performance.now()-d0}
+function theme(){const s=getComputedStyle(document.documentElement);col={bg:s.getPropertyValue('--bg'),a:s.getPropertyValue('--a').trim(),w:s.getPropertyValue('--w').trim(),c:s.getPropertyValue('--c').trim(),gr:s.getPropertyValue('--gr').trim()};dirty()}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);
+function size(){const r=cv.getBoundingClientRect();cv.width=r.width*dpr;cv.height=r.height*dpr;dirty()}addEventListener('resize',size);
+const sn=v=>Math.round(v/G)*G,w2=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left-view.x)/view.z,(e.clientY-r.top-view.y)/view.z]};
+function setTool(t){if(run&&t!='sel')return;tool=t;aw=0;wst=null;pr=0;pmir=0;document.querySelectorAll('aside button').forEach(b=>b.classList.toggle('on',b.id=='t_'+t));$('wb').classList.toggle('on',t=='wire');cv.style.cursor=t=='sel'?'default':'crosshair';dirty()}
+const mark=()=>{clrF();dirtyNet=true;if(!run)tick();dirty();try{localStorage.setItem('cl2',snap())}catch(e){}},clearSel=()=>{comps.forEach(c=>c.sel=0);wires.forEach(w=>w.sel=0)};
+function dseg(w,x,y){const dx=w.x2-w.x1,dy=w.y2-w.y1,l=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((x-w.x1)*dx+(y-w.y1)*dy)/l));return Math.hypot(x-w.x1-t*dx,y-w.y1-t*dy)}
+function hit(x,y){for(let i=comps.length-1;i>=0;i--){const b=bbox(comps[i]);if(x>=b[0]&&x<=b[2]&&y>=b[1]&&y<=b[3])return comps[i]}for(const w of wires)if(dseg(w,x,y)<6/view.z)return w}
+function selUI(){vp=0;return pan();const s=comps.filter(c=>c.sel),c=s.length==1&&!wires.some(w=>w.sel)?s[0]:null,ok=c&&c.v!==undefined;$('val').disabled=!ok||run;$('frq').disabled=run||!(c&&(c.t=='ac'||c.t=='pot'||c.t=='os'));$('val').value=ok?c.v:'';$('frq').value=c&&c.f?c.f:'';const os=c&&c.t=='os';$('lv').textContent=os?'Time/div':'Value';$('lf').textContent=os?'V/div':c&&c.t=='pot'?'Pos %':'Hz'}
+cv.oncontextmenu=e=>e.preventDefault();
+cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const[x,y]=w2(e);mouse=[x,y];
+if(e.button){drag={k:'pan',sx:e.clientX,sy:e.clientY,vx:view.x,vy:view.y,mv:0,b:e.button};return}
+if(tool=='wire'){const q=[sn(x),sn(y)],cn=aw&&isConn(q);if(wst&&(wst[0]!=q[0]||wst[1]!=q[1])){push();const a=wst;if(a[0]!=q[0]&&a[1]!=q[1]){wires.push({x1:a[0],y1:a[1],x2:q[0],y2:a[1]});wires.push({x1:q[0],y1:a[1],x2:q[0],y2:q[1]})}else wires.push({x1:a[0],y1:a[1],x2:q[0],y2:q[1]});mark()}if(cn&&wst&&(wst[0]!=q[0]||wst[1]!=q[1]))setTool('sel');else wst=q;dirty();return}
+if(tool!='sel'){push();comps.push(nm_(Object.assign(mk(tool,sn(x),sn(y),pr),{m:tool=='os'?0:pmir})));rec=[tool].concat(rec.filter(t=>t!=tool)).slice(0,5);if(!$('srch').value)buildPal();mark();return}
+if(tool=='sel'&&!run&&!e.shiftKey){const pp=pinAt(x,y);if(pp){setTool('wire');aw=1;wst=pp;dirty();return}}
+const lh=lhit(x,y);if(lh&&tool=='sel'){drag={k:'lbl',c:lh[0],o:lh[1]=='nr'?'no':'vo',sx:x,sy:y};drag.b0=(drag.c[drag.o]||[0,0]).slice();push();return}const h=hit(x,y);
+if(h&&run&&h.t=='pot'){drag={k:'pot',c:h};potSet(h,x,y);return}
+if(h&&run&&(h.t=='sw'||h.t=='bt'||h.t=='nb'||h.t=='sp')){if(h.t=='bt'||h.t=='nb'){h.on=1;drag={k:'btn',c:h}}else h.on^=1;poke(h);dirty();return}
+if(h){if(!h.sel){if(!e.shiftKey)clearSel();h.sel=1}else if(e.shiftKey)h.sel=0;
+const pp=[];comps.filter(c=>c.sel).forEach(c=>pins(c).forEach(p=>pp.push(p+'')));wires.filter(w=>w.sel).forEach(w=>pp.push([w.x1,w.y1]+'',[w.x2,w.y2]+''));
+const ends=[];wires.forEach(w=>{if(!w.sel){if(pp.includes([w.x1,w.y1]+''))ends.push([w,1]);if(pp.includes([w.x2,w.y2]+''))ends.push([w,2])}});
+drag={k:'mv',lx:sn(x),ly:sn(y),ends}}
+else{if(!e.shiftKey)clearSel();drag={k:'box',x0:x,y0:y,x1:x,y1:y}}selUI();dirty()};
+cv.onpointermove=e=>{const[x,y]=w2(e);mouse=[x,y];mIn=1;if(!drag){if(tool!='sel')dirty();else if(!run){const p=''+pinAt(x,y);if(p!=hp){hp=p;dirty()}}return}
+if(drag.k=='pan'){drag.mv=Math.max(drag.mv,Math.abs(e.clientX-drag.sx)+Math.abs(e.clientY-drag.sy));view.x=drag.vx+e.clientX-drag.sx;view.y=drag.vy+e.clientY-drag.sy}
+else if(drag.k=='pot')potSet(drag.c,x,y);else if(drag.k=='lbl')drag.c[drag.o]=[drag.b0[0]+x-drag.sx,drag.b0[1]+y-drag.sy];else if(drag.k=='box'){drag.x1=x;drag.y1=y}
+else if(drag.k=='mv'&&!run){const qx=sn(x),qy=sn(y),dx=qx-drag.lx,dy=qy-drag.ly;if(dx||dy){if(!drag.mp){push();drag.mp=1}comps.forEach(c=>{if(c.sel){c.x+=dx;c.y+=dy}});
+wires.forEach(w=>{if(w.sel){w.x1+=dx;w.x2+=dx;w.y1+=dy;w.y2+=dy}});drag.ends.forEach(([w,i])=>{w['x'+i]+=dx;w['y'+i]+=dy});drag.lx=qx;drag.ly=qy;dirtyNet=true}}
+dirty()};
+cv.onpointerup=e=>{if(!drag)return;const d=drag;drag=null;
+if(d.k=='pan'&&d.mv<4&&d.b==2){if(wst&&!aw)wst=null;else setTool('sel')}
+else if(d.k=='btn'){d.c.on=0;poke(d.c)}
+else if(d.k=='box'){const a=Math.min(d.x0,d.x1),b=Math.min(d.y0,d.y1),c=Math.max(d.x0,d.x1),dd=Math.max(d.y0,d.y1),win=d.x1>=d.x0;
+if(c-a>3||dd-b>3){const t=(r)=>win?(r[0]>=a&&r[2]<=c&&r[1]>=b&&r[3]<=dd):!(r[0]>c||r[2]<a||r[1]>dd||r[3]<b);
+comps.forEach(o=>{if(t(bbox(o)))o.sel=1});wires.forEach(w=>{if(t([Math.min(w.x1,w.x2),Math.min(w.y1,w.y2),Math.max(w.x1,w.x2),Math.max(w.y1,w.y2)]))w.sel=1})}}
+selUI();if(dirtyNet)mark();dirty()};
+cv.ondblclick=()=>{wst=null;if(aw)setTool('sel');dirty()};
+cv.onwheel=e=>{e.preventDefault();const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,z0=view.z,z1=Math.max(.4,Math.min(3,z0*(e.deltaY<0?1.1:1/1.1)));
+view.x=mx-(mx-view.x)*z1/z0;view.y=my-(my-view.y)*z1/z0;view.z=z1;dirty()};
+function del(){if(run)return;push();comps=comps.filter(c=>!c.sel);wires=wires.filter(w=>!w.sel);selUI();mark()}
+function rotSel(){if(run)return;if(T[tool]){pr=(pr+1)&3;mark()}else grp('r')}
+addEventListener('keydown',e=>{if((e.target.tagName=='INPUT'&&e.target.type!='range')||e.target.tagName=='TEXTAREA'||e.target.tagName=='SELECT')return;const k=e.key.toLowerCase();if(k=='/'){e.preventDefault();$('srch').focus();return}
+if((e.ctrlKey||e.metaKey)&&k.length==1&&'cxvd'.includes(k)){e.preventDefault();({c:copySel,x:()=>{copySel();del()},v:()=>pasteClip(),d:()=>{copySel();pasteClip(1)}})[k]()}else if((e.ctrlKey||e.metaKey)&&(k=='z'||k=='y')){e.preventDefault();(k=='y'||e.shiftKey)?redo():undo()}else if(k=='delete'||k=='backspace')del();else if(k=='r')e.shiftKey?grp('l'):rotSel();else if(k=='m'&&!e.ctrlKey&&!e.metaKey){T[tool]?(pmir^=1,dirty()):grp(e.shiftKey?'v':'h')}else if(k=='w')setTool(tool=='wire'?'sel':'wire');else if(k=='escape'){if(wst&&!aw)wst=null;else setTool('sel');dirty()}
+else if(k==' '){e.preventDefault();togRun()}else if(k=='a'&&(e.ctrlKey||e.metaKey)){e.preventDefault();comps.forEach(c=>c.sel=1);wires.forEach(w=>w.sel=1);selUI();dirty()}});
+$('run').onclick=togRun;$('stp').onclick=()=>{if(run)setRun(false)};$('wb').onclick=()=>setTool(tool=='wire'?'sel':'wire');$('rot').onclick=rotSel;$('del').onclick=del;
+$('rst').onclick=()=>{clrF();comps.forEach(c=>{c.vp=c.ip=c.is=c.av=c.sq=c.gl=c.w=c.ang=0;c.bl=c.ht=0;c.st=0;c.pc=0;c.cnt=0;c.qs=0;c.bv=0;if(c.t=='rl')c.on=0;if(c.t=='c')c.vp=c.qn||0;if(c.t=='l')c.ip=c.qn||0;if(c.ta){c.ta.fill(0);c.tb.fill(0);c.nt=0;c.ti=NS}});if(net){net.t=0;farmInv()}dirty()};
+$('val').oninput=e=>{if(!vp){push();vp=1}comps.forEach(c=>{if(c.sel)c.v=e.target.value});mark()};$('frq').oninput=e=>{comps.forEach(c=>{if(c.sel&&(c.t=='ac'||c.t=='pot'||c.t=='os'))c.f=e.target.value});mark()};
+function ex(){comps=[mk('dc',100,200),mk('sw',200,120),mk('r',320,120),mk('c',400,200,1),mk('vm',480,200,1),mk('gnd',100,300)];
+wires=[[100,160,100,120],[100,120,160,120],[240,120,280,120],[360,120,400,120],[400,120,400,160],[400,120,480,120],[480,120,480,160],[100,240,100,300],[400,240,400,280],[400,280,100,280],[480,240,480,280],[480,280,400,280]].map(a=>({x1:a[0],y1:a[1],x2:a[2],y2:a[3]}));
+comps.forEach(nm_);net=null;mark()}
+function cf(c){return{t:c.t,x:c.x,y:c.y,r:c.r,m:c.m||0,v:c.v,f:c.f,on:c.on,n:c.n,no:c.no,vo:c.vo,u:c.u,p:c.p,q:c.q,s:c.s,k:c.k}}
+function snap(){return JSON.stringify({c:comps.map(cf),w:wires.map(w=>({x1:w.x1,y1:w.y1,x2:w.x2,y2:w.y2}))})}
+function push(){hist.push(snap());if(hist.length>80)hist.shift();fut=[]}
+const SK=['v','f','p','q','s','k','n','u'];
+let skipped=[];
+function load(s){const o=JSON.parse(s);skipped=[];comps=[];o.c.forEach((a,i)=>{if(!a||!T[a.t]){skipped.push(a&&a.t);return}
+const c=mk(a.t,Math.round(+a.x||0),Math.round(+a.y||0),((+a.r|0)%4+4)%4);c.si=i;c.m=a.m&&a.m!=='0'?1:0;c.on=a.on&&a.on!=='0'?1:0;
+for(const k of SK)if(a[k]!==undefined&&a[k]!==null&&!(k=='n'&&a[k]===''))c[k]=String(a[k]);
+for(const k of['no','vo'])if(Array.isArray(a[k])&&a[k].length==2)c[k]=[+a[k][0]||0,+a[k][1]||0];
+comps.push(c)});
+wires=o.w.map(w=>({x1:Math.round(w.x1),y1:Math.round(w.y1),x2:Math.round(w.x2),y2:Math.round(w.y2)}));selUI();mark()}
+function undo(){if(!run&&hist.length){fut.push(snap());load(hist.pop())}}
+function redo(){if(!run&&fut.length){hist.push(snap());load(fut.pop())}}
+$('un').onclick=undo;$('re').onclick=redo;
+const NS=200;
+const SIMK={NS,NL,LC,SF:['vp','ip','is','av','sq','gl','cnt','pc','st','qs','bv','ht','bl','w','ang','cur','pi','pv','ia','pw','on','ix']};
+const SF=SIMK.SF;
+function sp(){return Math.pow(10,($('spd').value-50)/40)}
+$('spd').oninput=()=>{$('sx').textContent=+sp().toPrecision(2)+'×'};
+function nice(x){const e=Math.pow(10,Math.floor(Math.log10(x))),f=x/e;return(f<=1?1:f<=2?2:f<=5?5:10)*e}
+function osc(c){cx.fillStyle='#08140e';cx.fillRect(-30,-60,200,120);cx.lineWidth=1;cx.strokeStyle='#1f3b2c';cx.beginPath();
+for(let i=1;i<10;i++)Pp([-30+i*20,-60,-30+i*20,60]);for(let j=1;j<6;j++)Pp([-30,-60+j*20,170,-60+j*20]);cx.stroke();
+cx.strokeStyle='#3e6b52';cx.beginPath();Pp([-30,0,170,0]);Pp([70,-60,70,60]);cx.stroke();
+cx.strokeStyle=col.c;cx.lineWidth=2;cx.strokeRect(-30,-60,200,120);cx.beginPath();Pp([-40,-20,-30,-20]);Pp([-40,20,-30,20]);cx.stroke();
+if(!c.ta)return;let m1=1e9,x1=-1e9,m2=1e9,x2=-1e9;for(let i=0;i<NS;i++){const p=c.ta[i],q=c.tb[i];m1=Math.min(m1,p);x1=Math.max(x1,p);m2=Math.min(m2,q);x2=Math.max(x2,q)}
+c.tl=x1-m1>1e-3?(x1+m1)/2:0;const fv=pv(c.f),vd=fv>0?fv:nice(Math.max(Math.abs(m1),Math.abs(x1),Math.abs(m2),Math.abs(x2),1e-3)/2.6);
+[[c.ta,'#f5d020'],[c.tb,'#35c7ff']].forEach(([a,cl])=>{cx.strokeStyle=cl;cx.lineWidth=1.4;cx.beginPath();for(let i=0;i<NS;i++){const X=-30+i*200/NS,Y=Math.max(-60,Math.min(60,-a[i]/vd*20));i?cx.lineTo(X,Y):cx.moveTo(X,Y)}cx.stroke()});
+cx.font='9px system-ui';cx.textAlign='left';cx.fillStyle='#f5d020';cx.fillText('CH1 '+fm(x1-m1,'Vpp'),-27,56);cx.fillStyle='#35c7ff';cx.fillText('CH2 '+fm(x2-m2,'Vpp'),50,56);
+cx.fillStyle='#9ab';cx.fillText(fm(vd,'V')+'/div'+(fv>0?'':' auto'),-27,-51);cx.textAlign='right';cx.fillText(fm(c.val,'s')+'/div',167,-51)}
+function sd(t){const o={};(SX[t]||[]).forEach(e=>{if(e[3]!==undefined)o[e[0]]=e[3]});return o}
+function nm_(c){const p=PF[c.t];if(p&&!c.n){const u=new Set(comps.map(o=>o.n));let i=1;while(u.has(p+i))i++;c.n=p+i}return c}
+function lab(c){if(c.v===undefined)return'';let s=c.v+(c.u!==undefined?c.u:U[c.t]||'');if(c.t=='ac'||c.t=='sg')s+=' '+c.f+'Hz';if(c.t=='pot'||c.t=='ldr'||c.t=='sol')s+=' '+c.f+'%';if(c.t=='ntc')s+=' '+c.f+'\u00b0C';return s}
+function lbl(c,b,L){const q=[[c.n||'',c.x+(c.no?c.no[0]:0),b[1]-4+(c.no?c.no[1]:0),'nr'],[L||c.t=='lg'?rd(c):c.t=='gnd'?'':lab(c),c.x+(c.vo?c.vo[0]:0),b[3]+10+(c.vo?c.vo[1]:0),'vr']];
+q.forEach(([s,x,y,k],i)=>{cx.font=(i?'':'bold ')+'11px system-ui';cx.textAlign='center';cx.fillText(s,x,y);const w=cx.measureText(s).width;c[k]=s?[x-w/2-2,y-11,x+w/2+2,y+3]:null})}
+function lhit(x,y){for(let i=comps.length-1;i>=0;i--){const c=comps[i];for(const k of['nr','vr']){const r=c[k];if(r&&x>=r[0]&&x<=r[2]&&y>=r[1]&&y<=r[3])return[c,k]}}}
+function potSet(c,x,y){const[lx]=rot(x-c.x,y-c.y,(4-c.r)&3),p=Math.round(Math.min(1,Math.max(0,(lx+30)/60))*100);c.f=''+p;c.pp=p/100;poke(c);const e=$('potsl');if(e&&c.sel)e.value=p;dirty()}
+function pan(){const s=comps.filter(c=>c.sel),c=s.length==1&&!wires.some(w=>w.sel)?s[0]:null,P=$('pr');P.innerHTML='';
+if(!c){P.textContent='Select one element to edit its name, value, unit and settings. Drag a name or value label to move it. Turn the potentiometer wiper by dragging it while running.';return}
+const add=(l,k,u,o)=>{const w=document.createElement('label'),pot=(c.t=='pot'||c.t=='ldr'||c.t=='ntc'||c.t=='sol')&&k=='f';w.append(l+' ');let i;
+if(o){i=document.createElement('select');o.forEach(x=>i.add(new Option(x)));i.value=c[k]}
+else{i=document.createElement('input');i.value=k=='u'?(c.u!==undefined?c.u:U[c.t]||''):c[k]===undefined?'':c[k];if(pot){i.type='range';i.min=c.t=='ntc'?-20:0;i.max=c.t=='ntc'?150:100;i.id='potsl';i.style.width='100px'}}
+i.disabled=run&&!pot;i.oninput=i.onchange=()=>{if(run&&!pot)return;if(!vp){push();vp=1}c[k]=i.value;if(pot){c.pp=(+i.value)/100;if(c.t!='pot')rlive(c);poke(c)}else if(k!='n'&&k!='u'){c.init=0;mark()}dirty()};
+w.append(i);if(u){const t=document.createElement('span');t.textContent=' '+u;w.append(t)}P.append(w)};
+add('Name','n','');if(c.v!==undefined)add('Unit','u','');(SX[c.t]||[]).forEach(e=>add(e[1],e[0],e[2],e[4]))}
+new ResizeObserver(size).observe(cv);
+function pinAt(x,y){const r=8/view.z;for(const c of comps)for(const p of pins(c))if(Math.hypot(x-p[0],y-p[1])<r)return p}
+function isConn(q){return comps.some(c=>pins(c).some(p=>p[0]==q[0]&&p[1]==q[1]))||wires.some(w=>(w.x1==q[0]&&w.y1==q[1])||(w.x2==q[0]&&w.y2==q[1])||onSeg(q,w))}
+function statics(){const o=[],nm=c=>c.n||c.t,deg=new Int32Array(N),uf=Array.from({length:N},(_,i)=>i),f=a=>{while(uf[a]!=a)a=uf[a]=uf[uf[a]];return a},u=(a,b)=>{uf[f(a)]=f(b)};
+if(!comps.length)return[['i','Place parts, wire them (click a pin to start a wire), add a Ground, then press Run.']];
+if(!hasG)o.push(['e','No Ground part: node voltages and meters have no reference. Add a Ground.']);
+comps.forEach(c=>{const n=c.nd,t=c.t;n.forEach(k=>deg[k]++);if(c.row>=0&&n[0]==n[1])o.push(['e',nm(c)+' has both terminals on one node (shorted by wiring).']);
+if(/^(r|l|dc|ac|sg|d|sd|led|zd|lamp|mo|am|vm|fu|ldr|ntc|bz|sol)$/.test(t)||((t=='sw'||t=='bt')&&c.on)||(t=='nb'&&!c.on))u(n[0],n[1]);else if(t=='pot'){u(n[0],n[2]);u(n[2],n[1])}else if(t=='sp')u(n[0],c.on?n[2]:n[1]);
+else if(t=='tr'){u(n[0],n[1]);u(n[2],n[3])}else if(t=='rl'){u(n[0],n[1]);if(c.on)u(n[2],n[3])}else if(t=='npn'||t=='pnp'){u(n[1],n[2]);u(n[0],n[2])}else if(t=='nm'||t=='pm')u(n[1],n[2]);
+else if(/^(op|and|or|nand|nor|xor)$/.test(t))u(n[2],0);else if(t=='not')u(n[1],0);else if(t=='dff'){u(n[2],0);u(n[3],0)}else if(t=='jk'||t=='srf'){u(n[3],0);u(n[4],0)}else if(t=='tf'){u(n[2],0);u(n[3],0)}else if(t=='reg')u(n[2],n[1]);else if(t=='tm'){u(n[0],n[1]);u(n[7],n[0]);u(n[6],n[0]);u(n[5],0);u(n[4],n[1])}else if(t=='br'){u(n[0],n[2]);u(n[1],n[2]);u(n[3],n[0])}else if(t=='ctr'){for(let i=2;i<6;i++)u(n[i],0)}});
+const dang=[],fl=[];comps.forEach(c=>{if(c.t!='gnd'&&c.t!='lg')c.nd.forEach((k,i)=>{if(k&&deg[k]==1&&!((c.t=='dff'&&i>1)||(c.t=='ctr'&&i>0)||(c.t=='tm'&&i>5)||(c.t=='tf'&&i>1)||((c.t=='jk'||c.t=='srf')&&i>2)))dang.push(nm(c)+' pin '+(i+1))});if(c.t!='gnd')c.nd.forEach(k=>{if(k&&f(k)!=f(0)&&!fl.includes(nm(c)))fl.push(nm(c))})});
+if(dang.length)o.push(['w','Unconnected pin(s): '+dang.slice(0,6).join(', ')+(dang.length>6?'...':'')+'. Wire them or remove the part.']);
+if(hasG&&fl.length)o.push(['w','No DC path to ground at: '+fl.slice(0,6).join(', ')+'. Readings there are unreliable. Connect to ground or add a bleed resistor (capacitors and open switches block DC).']);
+o.push(['i',comps.length+' parts, '+(N-1)+' nodes, step '+fm(net.dt,'s')+(net.q?', Newton solver active':'')+farmInfo()]);return o}
+function dyn(){if(!net)return;const o=[];{const bz=comps.find(c=>c.t=='bz'&&c.bv>2);if(bz||au)snd(!!bz&&!pz,bz?bz.fr:0)}if(qa&&net.lag>5&&qs<4){qs*=2;dirtyNet=true}
+if(net.fail)o.push(['e','Solver did not converge in '+net.fail+' step(s) (last change '+fm(net.md,'V')+'). Try: series resistance on diodes/LEDs/sources, lower op-amp gain, check transistor polarity, or lower the speed.']);
+if(net.lag>3)o.push(['w','Cannot keep real-time on this CPU, so the simulation runs slower than the speed setting. '+(qa?(qs>1?'Auto quality has coarsened the time step to keep up.':''):'Set Quality to Auto or Fast, or simplify the circuit.')]);
+if(net.mv>1e3)o.push(['e','Node voltage reached '+fm(net.mv,'V')+': usually a floating node, a shorted ideal source, or a missing ground path.']);
+comps.forEach(c=>{const n=c.n||c.t;if(c.row>=0&&Math.abs(c.ix||0)>20)o.push(['e',n+' supplies '+fm(Math.abs(c.ix||0),'A')+': probably a short circuit. Add series resistance.']);
+if(c.t=='led'&&c.cur>.05)o.push(['w',n+' carries '+fm(c.cur,'A')+': add a current-limiting resistor.']);if(c.t=='fu'&&c.bl)o.push(['i',n+' has blown (open). Press Reset to replace it.'])});
+scan(o);net.mv=0;net.fail=0;net.lag=0;dd=o;render()}
+function render(){const l=ds.concat(dd).sort((p,q)=>'ewi'.indexOf(p[0])-'ewi'.indexOf(q[0])),n=l.filter(a=>a[0]!='i').length,B=$('dgb');B.textContent='Diagnostics'+(n?' ('+n+')':'');B.style.borderColor=n?(l.some(a=>a[0]=='e')?'#e5484d':'#d9822b'):'';
+const P=$('dg');if(!P.hidden)P.innerHTML='<b>Simulation diagnostics</b>'+(n?'':'<p class="i">✓ No problems detected.</p>')+l.map(a=>'<p class="'+a[0]+'">'+(a[0]=='e'?'✖ ':a[0]=='w'?'⚠ ':'ℹ ')+String(a[1]).replace(/[<&]/g,'')+'</p>').join('')}
+$('dgb').onclick=()=>{$('dg').hidden=!$('dg').hidden;render()};
+let bz=0,sc=0,lw=performance.now();
+setInterval(()=>{const n=performance.now(),dt=n-lw,cpu=Math.min(100,bz/dt*100),pm=performance.memory;bz=0;lw=n;const sps=Math.round(sc*1000/dt);sc=0;
+const nt=run&&farm.mode=='worker'?farm.act.length:0,wl=nt?Math.min(100,farm.wb/dt/nt*100):0;farm.wb=0;
+$('hw').textContent='CPU: UI '+cpu.toFixed(0)+'%'+(nt?'  +  '+nt+' sim thread'+(nt>1?'s':'')+' avg '+wl.toFixed(0)+'%':'')+'  |  RAM: '+(pm?(pm.usedJSHeapSize/1048576).toFixed(0)+' MB':'n/a in this browser')+'  |  '+(run?sps+' steps/s':'idle')+'  |  cores: '+CORES+'  |  step '+(net?fm(net.dt,'s'):'-')+'  |  spec '+SPEC.h.slice(0,8)},1000);
+function projTxt(){return JSON.stringify(Object.assign({app:'CosLog',ver:1},SEED!=24301?{seed:SEED}:{},JSON.parse(snap()),{view}),null,1)}
+function loadProj(t){const o=JSON.parse(t);if(!Array.isArray(o.c)||!Array.isArray(o.w))throw 0;{const sd=typeof o.seed=='string'?Number(o.seed):o.seed;SEED=Number.isSafeInteger(sd)&&sd>=0?sd:24301}if(run)setRun(false);push();load(JSON.stringify(o));if(skipped.length)flash('Skipped '+skipped.length+' unknown part(s): '+[...new Set(skipped)].join(', ')+' (made with a newer or different CosLog)');if(o.view&&o.view.z)view=o.view;dirty()}
+const pmsg=m=>{$('pmsg').textContent=m},py=()=>window.pywebview&&pywebview.api;
+$('sv').onclick=()=>{$('pt').value=projTxt();pmsg('Copy or download to keep your project.');$('pj').hidden=false};
+$('op').onclick=()=>{$('pt').value='';pmsg('Open a file, or paste project text and press Load.');$('pj').hidden=false};
+$('px').onclick=()=>{$('pj').hidden=true};
+$('pc').onclick=()=>{if($('pt').value===projTxt())saved();$('pt').select();try{navigator.clipboard.writeText($('pt').value).then(()=>pmsg('Copied.'),()=>{document.execCommand('copy');pmsg('Copied.')})}catch(e){document.execCommand('copy');pmsg('Copied.')}};
+$('pd').onclick=()=>{const t=$('pt').value||projTxt();if(py()){pywebview.api.save(t).then(o=>{pmsg(o?'Saved.':'Cancelled.');if(o)saved()});return}if(DL){DL.save({filename:'circuit.json',data:t}).then(()=>{pmsg('Saved.');saved()},e=>pmsg(e&&e.code=='declined'?'Cancelled.':'Could not save: use Copy.'));return}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'application/json'}));a.download='circuit.json';a.click();saved();pmsg('If no file appeared, use Copy instead.')};
+$('pf').onclick=()=>guard(()=>{if(py())pywebview.api.open().then(t=>{if(t)try{loadProj(t);saved();$('pj').hidden=true}catch(e){pmsg('Not a valid project file.')}});else $('pi').click()});
+$('pi').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{loadProj(r.result);saved();$('pj').hidden=true}catch(x){pmsg('Not a valid project file.')}};r.readAsText(f);e.target.value=''};
+$('pl').onclick=()=>guard(()=>{try{loadProj($('pt').value);saved();$('pj').hidden=true}catch(e){pmsg('Not a valid project text.')}});
+const DEMO="{\"app\":\"CircuitLite\",\"ver\":1,\"c\":[{\"t\":\"ac\",\"x\":100,\"y\":200,\"r\":0,\"n\":\"V1\",\"on\":0,\"v\":\"24\",\"f\":\"50\"},{\"t\":\"gnd\",\"x\":100,\"y\":300,\"r\":0,\"n\":\"GND1\",\"on\":0},{\"t\":\"tr\",\"x\":220,\"y\":200,\"r\":0,\"n\":\"T1\",\"on\":0,\"v\":\"2\"},{\"t\":\"d\",\"x\":340,\"y\":160,\"r\":3,\"n\":\"D1\",\"on\":0},{\"t\":\"d\",\"x\":460,\"y\":160,\"r\":3,\"n\":\"D2\",\"on\":0},{\"t\":\"d\",\"x\":340,\"y\":280,\"r\":3,\"n\":\"D3\",\"on\":0},{\"t\":\"d\",\"x\":460,\"y\":280,\"r\":3,\"n\":\"D4\",\"on\":0},{\"t\":\"gnd\",\"x\":400,\"y\":320,\"r\":0,\"n\":\"GND2\",\"on\":0},{\"t\":\"c\",\"x\":560,\"y\":200,\"r\":1,\"n\":\"C1\",\"on\":0,\"v\":\"470u\"},{\"t\":\"r\",\"x\":640,\"y\":120,\"r\":0,\"n\":\"R1\",\"on\":0,\"v\":\"100\",\"q\":\"0.5\"},{\"t\":\"zd\",\"x\":720,\"y\":200,\"r\":3,\"n\":\"DZ1\",\"on\":0,\"v\":\"5.1\"},{\"t\":\"r\",\"x\":840,\"y\":120,\"r\":0,\"n\":\"R2\",\"on\":0,\"v\":\"330\"},{\"t\":\"led\",\"x\":920,\"y\":200,\"r\":1,\"n\":\"LED1\",\"on\":0,\"p\":\"red\"},{\"t\":\"vm\",\"x\":1000,\"y\":200,\"r\":1,\"n\":\"VM1\",\"on\":0},{\"t\":\"os\",\"x\":560,\"y\":460,\"r\":0,\"n\":\"OSC1\",\"on\":0,\"v\":\"5m\",\"f\":\"auto\"},{\"t\":\"sg\",\"x\":100,\"y\":770,\"r\":0,\"n\":\"FG1\",\"on\":0,\"k\":\"sine\",\"v\":\"20m\",\"f\":\"100\"},{\"t\":\"c\",\"x\":200,\"y\":730,\"r\":0,\"n\":\"Cin\",\"on\":0,\"v\":\"10u\"},{\"t\":\"vm\",\"x\":140,\"y\":770,\"r\":1,\"n\":\"VMin\",\"on\":0},{\"t\":\"r\",\"x\":300,\"y\":690,\"r\":1,\"n\":\"Rb1\",\"on\":0,\"v\":\"47k\"},{\"t\":\"r\",\"x\":300,\"y\":770,\"r\":1,\"n\":\"Rb2\",\"on\":0,\"v\":\"10k\"},{\"t\":\"npn\",\"x\":420,\"y\":730,\"r\":0,\"n\":\"Q1\",\"on\":0,\"p\":\"100\"},{\"t\":\"r\",\"x\":440,\"y\":650,\"r\":1,\"n\":\"Rc\",\"on\":0,\"v\":\"4.7k\"},{\"t\":\"r\",\"x\":440,\"y\":810,\"r\":1,\"n\":\"Re\",\"on\":0,\"v\":\"1k\"},{\"t\":\"c\",\"x\":500,\"y\":810,\"r\":1,\"n\":\"Ce\",\"on\":0,\"v\":\"470u\"},{\"t\":\"c\",\"x\":540,\"y\":690,\"r\":0,\"n\":\"Cout\",\"on\":0,\"v\":\"10u\"},{\"t\":\"r\",\"x\":640,\"y\":770,\"r\":1,\"n\":\"RL\",\"on\":0,\"v\":\"10k\"},{\"t\":\"vm\",\"x\":700,\"y\":770,\"r\":1,\"n\":\"VMout\",\"on\":0},{\"t\":\"dc\",\"x\":760,\"y\":730,\"r\":0,\"n\":\"Vcc\",\"on\":0,\"v\":\"12\"},{\"t\":\"gnd\",\"x\":100,\"y\":850,\"r\":0,\"n\":\"GND3\",\"on\":0}],\"w\":[{\"x1\":100,\"y1\":160,\"x2\":180,\"y2\":160},{\"x1\":180,\"y1\":160,\"x2\":180,\"y2\":180},{\"x1\":100,\"y1\":240,\"x2\":180,\"y2\":240},{\"x1\":180,\"y1\":240,\"x2\":180,\"y2\":220},{\"x1\":100,\"y1\":240,\"x2\":100,\"y2\":300},{\"x1\":260,\"y1\":180,\"x2\":300,\"y2\":180},{\"x1\":300,\"y1\":180,\"x2\":300,\"y2\":220},{\"x1\":300,\"y1\":220,\"x2\":340,\"y2\":220},{\"x1\":340,\"y1\":200,\"x2\":340,\"y2\":240},{\"x1\":460,\"y1\":200,\"x2\":460,\"y2\":240},{\"x1\":260,\"y1\":220,\"x2\":260,\"y2\":360},{\"x1\":260,\"y1\":360,\"x2\":520,\"y2\":360},{\"x1\":520,\"y1\":360,\"x2\":520,\"y2\":220},{\"x1\":520,\"y1\":220,\"x2\":460,\"y2\":220},{\"x1\":340,\"y1\":120,\"x2\":600,\"y2\":120},{\"x1\":560,\"y1\":120,\"x2\":560,\"y2\":160},{\"x1\":560,\"y1\":240,\"x2\":560,\"y2\":320},{\"x1\":340,\"y1\":320,\"x2\":1000,\"y2\":320},{\"x1\":680,\"y1\":120,\"x2\":800,\"y2\":120},{\"x1\":720,\"y1\":120,\"x2\":720,\"y2\":160},{\"x1\":720,\"y1\":240,\"x2\":720,\"y2\":320},{\"x1\":880,\"y1\":120,\"x2\":920,\"y2\":120},{\"x1\":920,\"y1\":120,\"x2\":920,\"y2\":160},{\"x1\":920,\"y1\":240,\"x2\":920,\"y2\":320},{\"x1\":760,\"y1\":120,\"x2\":760,\"y2\":80},{\"x1\":760,\"y1\":80,\"x2\":1000,\"y2\":80},{\"x1\":1000,\"y1\":80,\"x2\":1000,\"y2\":160},{\"x1\":1000,\"y1\":240,\"x2\":1000,\"y2\":320},{\"x1\":520,\"y1\":440,\"x2\":500,\"y2\":440},{\"x1\":500,\"y1\":440,\"x2\":500,\"y2\":120},{\"x1\":520,\"y1\":480,\"x2\":480,\"y2\":480},{\"x1\":480,\"y1\":480,\"x2\":480,\"y2\":540},{\"x1\":480,\"y1\":540,\"x2\":1040,\"y2\":540},{\"x1\":1040,\"y1\":540,\"x2\":1040,\"y2\":80},{\"x1\":1040,\"y1\":80,\"x2\":1000,\"y2\":80},{\"x1\":100,\"y1\":730,\"x2\":160,\"y2\":730},{\"x1\":240,\"y1\":730,\"x2\":380,\"y2\":730},{\"x1\":300,\"y1\":650,\"x2\":300,\"y2\":610},{\"x1\":300,\"y1\":610,\"x2\":760,\"y2\":610},{\"x1\":440,\"y1\":770,\"x2\":500,\"y2\":770},{\"x1\":440,\"y1\":690,\"x2\":500,\"y2\":690},{\"x1\":580,\"y1\":690,\"x2\":700,\"y2\":690},{\"x1\":640,\"y1\":690,\"x2\":640,\"y2\":730},{\"x1\":700,\"y1\":690,\"x2\":700,\"y2\":730},{\"x1\":760,\"y1\":690,\"x2\":760,\"y2\":610},{\"x1\":100,\"y1\":810,\"x2\":100,\"y2\":850},{\"x1\":100,\"y1\":850,\"x2\":760,\"y2\":850},{\"x1\":140,\"y1\":810,\"x2\":140,\"y2\":850},{\"x1\":300,\"y1\":810,\"x2\":300,\"y2\":850},{\"x1\":640,\"y1\":810,\"x2\":640,\"y2\":850},{\"x1\":700,\"y1\":810,\"x2\":700,\"y2\":850},{\"x1\":760,\"y1\":770,\"x2\":760,\"y2\":850}],\"view\":{\"x\":20,\"y\":10,\"z\":0.7}}";
+ex=function(){loadProj(DEMO)};
+$('ql').onchange=()=>{const v=+$('ql').value;qa=v==0;qs=v||1;dirtyNet=true;if(!run)tick()};
+function stress(n){const C=[],W=[],c=(t,x,y,r,o)=>C.push(Object.assign({t,x,y,r,on:0},o||{})),w=(a,b,d,e)=>W.push({x1:a,y1:b,x2:d,y2:e});
+for(let i=0;i<n;i++){const Y=100+i*120;c('ac',100,Y+40,0,{v:''+(10+i%5*4),f:'200'});c('gnd',100,Y+80,0);c('r',200,Y,0,{v:'1k'});c('d',320,Y,0);c('c',420,Y+40,1,{v:'10u'});c('r',500,Y+40,1,{v:'2k'});c('r',580,Y,0,{v:'330'});c('led',700,Y,0,{p:'red'});
+w(100,Y,160,Y);w(240,Y,280,Y);w(360,Y,540,Y);w(620,Y,660,Y);w(740,Y,740,Y+80);w(100,Y+80,740,Y+80)}
+return{c:C,w:W,view:{x:10,y:10,z:Math.max(.12,Math.min(.7,700/(120*n+100)))}}}
+function clrF(){comps.forEach(c=>{c.ft=0});wires.forEach(w=>{w.ft=0})}
+function chk(c){const t=c.t,I=c.pi||0,A=c.ia||0,Vm=c.pv||0,P=c.pw||0,lim=(a,w,e,m,u)=>a>e?['e',m+fm(a,u)+' exceeds '+fm(e,u)]:a>w?['w',m+fm(a,u)+' near limit '+fm(e,u)]:null;
+if(t=='r'){const rt=c.qn>0?c.qn:.25;return lim(P,rt*.75,rt,'overheating ','W')}
+if(t=='lamp'){const rt=c.pn>0?c.pn:.5;return lim(P,rt*1.2,rt*1.6,'overpowered ','W')}
+if(t=='c'){const rt=c.sn>0?c.sn:50;return lim(Vm,rt*.8,rt,'overvoltage ','V')}
+if(t=='l')return lim(I,3,5,'overcurrent ','A');if(t=='tr')return lim(A,2,4,'winding overcurrent ','A')||lim(I,20,40,'winding surge ','A');
+if(t=='d')return lim(A,.7,1,'overcurrent ','A')||lim(I,10,30,'surge ','A')||lim(Vm,80,100,'reverse breakdown ','V');
+if(t=='sd')return lim(A,2,3,'overcurrent ','A')||lim(I,20,40,'surge ','A')||lim(Vm,32,40,'reverse breakdown ','V');
+if(t=='led')return lim(A,.025,.05,'overcurrent ','A')||lim(I,.15,.3,'surge ','A')||lim(Vm,4,6,'reverse voltage ','V');
+if(t=='zd')return lim(P,.4,.5,'overpowered ','W');
+if(t=='npn'||t=='pnp')return lim(Vm,32,40,'Vce ','V')||lim(A,.15,.4,'collector current ','A')||lim(I,.6,1.5,'surge ','A')||lim(P,.4,.6,'dissipating ','W');
+if(t=='nm'||t=='pm')return lim(Vm,48,60,'Vds ','V')||lim(A,1.5,3,'drain current ','A')||lim(I,6,12,'surge ','A')||lim(P,.8,1.2,'dissipating ','W');
+if(c.row>=0)return A>15?['e','short circuit: supplying '+fm(A,'A')]:null;
+if(t=='am')return lim(A,3,10,'overload ','A');if(t=='fu'&&c.bl)return['w','blown (open)'];return null}
+function scan(o){const now=performance.now(),hold=now+3000,nm=c=>c.n||c.t,mC=(c,l,m)=>{if(!c.ft||c.ft.l!='e'||l=='e')c.ft={l,m,t:hold}},mW=(w,l)=>{if(!w.ft||w.ft.l!='e'||l=='e')w.ft={l,t:hold}};
+comps.forEach(c=>{if(c.ft&&c.ft.t<now)c.ft=0});wires.forEach(w=>{if(w.ft&&w.ft.t<now)w.ft=0});
+const deg=new Int32Array(N);comps.forEach(c=>c.nd.forEach(k=>deg[k]++));
+comps.forEach(c=>{if(c.t!='gnd'&&c.t!='lg')c.nd.forEach((k,i)=>{if(k&&deg[k]==1&&!((c.t=='dff'&&i>1)||(c.t=='ctr'&&i>0)||(c.t=='tm'&&i>5)||(c.t=='tf'&&i>1)||((c.t=='jk'||c.t=='srf')&&i>2))){if(!c.ft||c.ft.l!='e')c.ft={l:'w',m:'pin '+(i+1)+' unconnected',pin:i,t:hold};wires.forEach(w=>{if(w.nd==k)mW(w,'w')})}})});
+const uf=Array.from({length:N},(_,i)=>i),f=a=>{while(uf[a]!=a)a=uf[a]=uf[uf[a]];return a},low=[];
+comps.forEach(c=>{const n=c.nd,t=c.t;if(((t=='sw'||t=='bt')&&c.on)||(t=='nb'&&!c.on)||t=='am'||(t=='fu'&&!c.bl)||(t=='r'&&c.val<.5)){uf[f(n[0])]=f(n[1]);low.push(c)}else if(t=='sp'){uf[f(n[0])]=f(c.on?n[2]:n[1]);low.push(c)}});
+comps.forEach(c=>{if(c.row>=0&&f(c.nd[0])==f(c.nd[1])){const rt=f(c.nd[0]),via=low.filter(l=>f(l.nd[0])==rt);mC(c,'e','short circuit');via.forEach(l=>mC(l,'e','in short-circuit path'));
+{const touch=(w,p)=>(w.x1==p[0]&&w.y1==p[1])||(w.x2==p[0]&&w.y2==p[1])||onSeg(p,w),seen=new Set,fr=[];pins(c).forEach(p=>wires.forEach(w=>{if(touch(w,p)&&w.nd>=0&&f(w.nd)==rt&&!seen.has(w)){seen.add(w);fr.push(w)}}));
+while(fr.length){const w=fr.pop();mW(w,'e');for(const v of wires)if(!seen.has(v)&&v.nd>=0&&f(v.nd)==rt&&(touch(v,[w.x1,w.y1])||touch(v,[w.x2,w.y2])||touch(w,[v.x1,v.y1])||touch(w,[v.x2,v.y2]))){seen.add(v);fr.push(v)}}}o.push(['e',nm(c)+' is short-circuited through '+(via.length?via.map(nm).join(', '):'wiring')+'. Marked in red on the schematic.'])}});
+comps.forEach(c=>{const r=chk(c);if(r){mC(c,r[0],r[1]);o.push([r[0],nm(c)+': '+r[1]+'.']);
+if(c.row>=0&&r[0]=='e'){wires.forEach(w=>{if(w.nd>0&&(w.nd==c.nd[0]||w.nd==c.nd[1]))mW(w,'e')})}}c.pi=c.pv=0});
+if(net.mv>1e3){const bn=net.bn;wires.forEach(w=>{if(w.nd==bn)mW(w,'e')})}}
+function drawF(){const now=performance.now(),pl=run&&!pz?.5+.5*Math.sin(now/170):1;cx.lineCap='round';
+for(const w of wires){const f=w.ft;if(f&&(f.t>now||!(run&&!pz))){cx.strokeStyle=f.l=='e'?'#ff3b30':'#ff9f0a';cx.lineWidth=6;cx.globalAlpha=.25+.45*pl;cx.beginPath();Pp([w.x1,w.y1,w.x2,w.y2]);cx.stroke()}}cx.globalAlpha=1;
+for(const c of comps){const f=c.ft;if(!f||(f.t<=now&&run&&!pz))continue;const b=bbox(c),cl=f.l=='e'?'#ff3b30':'#ff9f0a';cx.strokeStyle=cl;cx.lineWidth=2;cx.globalAlpha=.4+.6*pl;cx.setLineDash([6,4]);cx.strokeRect(b[0]+4,b[1]+4,b[2]-b[0]-8,b[3]-b[1]-8);cx.setLineDash([]);
+if(f.pin!==undefined){const p=pins(c)[f.pin];cx.beginPath();cx.arc(p[0],p[1],8,0,2*PI);cx.stroke()}cx.globalAlpha=1;
+cx.font='bold 10px system-ui';cx.textAlign='left';const s=(f.l=='e'?'\u2716 ':'\u26a0 ')+f.m.slice(0,44),w=cx.measureText(s).width;cx.fillStyle=cl;cx.fillRect(b[2]+2,b[1]-1,w+8,15);cx.fillStyle='#fff';cx.fillText(s,b[2]+6,b[1]+10)}}
+function rlive(c){if(c.t=='sol'){c.pp=Math.min(1,Math.max(0,(pv(c.f)||0)/100));return}if(c.t=='ldr'){const L=Math.min(1,Math.max(0,(pv(c.f)||0)/100));c.rv=Math.max(1,200+(c.val-200)*(1-L)*(1-L))}else{const T=(pv(c.f)||25)+273.15;c.rv=Math.max(1,c.val*Math.exp(3950*(1/T-1/298.15)))}}
+function junc(){const d={},add=(x,y,n)=>{const k=x+','+y;d[k]=(d[k]||0)+n};
+const ws=wires.filter(w=>w.x1!=w.x2||w.y1!=w.y2);ws.forEach(w=>{add(w.x1,w.y1,1);add(w.x2,w.y2,1)});comps.forEach(c=>pins(c).forEach(p=>add(p[0],p[1],1)));
+const pts=Object.keys(d).map(k=>k.split(',').map(Number));
+ws.forEach(w=>pts.forEach(p=>{if(onSeg(p,w)&&!((p[0]==w.x1&&p[1]==w.y1)||(p[0]==w.x2&&p[1]==w.y2)))add(p[0],p[1],2)}));
+return Object.keys(d).filter(k=>d[k]>2).map(k=>k.split(',').map(Number))}
+function resetSim(){comps.forEach(c=>{c.vp=c.ip=c.is=c.av=c.sq=c.gl=c.w=c.ang=0;c.bl=c.ht=0;c.st=0;c.pc=0;c.cnt=0;c.qs=0;c.bv=0;c.pi=c.pv=c.pw=c.ia=0;if(c.t=='rl')c.on=0;if(c.t=='c')c.vp=c.qn||0;if(c.t=='l')c.ip=c.qn||0;if(c.ta){c.ta.fill(0);c.tb.fill(0);c.nt=0;c.ti=NS}if(c.on0!==undefined)c.on=c.on0});if(net){net.t=0;net.fail=0;net.lag=0;net.mv=0}}
+function togRun(){if(!run)setRun(true);else{pz=!pz;lt=performance.now();$('run').textContent=pz?'Resume':'Pause';if(pz&&au)snd(0,0);dirty()}}
+function snd(on,f){try{if(!au){const C=window.AudioContext||window.webkitAudioContext;au={c:new C()};au.o=au.c.createOscillator();au.g=au.c.createGain();au.g.gain.value=0;au.o.type='square';au.o.connect(au.g);au.g.connect(au.c.destination);au.o.start()}if(au.c.state=='suspended')au.c.resume();au.o.frequency.value=f||2000;au.g.gain.value=on?.04:0}catch(e){}}
+function buildPal(){const P=$('pal'),q=$('srch').value.trim().toLowerCase(),st=P.scrollTop;P.innerHTML='';let n=0;
+const ok=k=>!q||q.split(/\s+/).every(w=>(T[k].n+' '+k+' '+(KW[k]||'')).toLowerCase().includes(w));
+(rec.length&&!q?[['Recent',rec]].concat(GR):GR).forEach(([g,ks])=>{const f=ks.filter(ok);if(!f.length)return;n+=f.length;const d=document.createElement('details');d.open=!!q||go[g]!==false;d.ontoggle=()=>{if(!q)go[g]=d.open};
+const s=document.createElement('summary');s.textContent=g+' ('+f.length+')';d.append(s);
+f.forEach(k=>{const b=document.createElement('button');b.textContent=T[k].n;b.id='t_'+k;b.title=k;b.disabled=run;if(tool==k)b.className='on';b.onclick=()=>setTool(k);d.append(b)});P.append(d)});
+if(!n)P.textContent='No parts match "'+q+'"';P.scrollTop=st}
+$('srch').oninput=buildPal;$('srch').onkeydown=e=>{if(e.key=='Enter'){const b=$('pal').querySelector('button:not(:disabled)');if(b)b.click()}else if(e.key=='Escape'){e.target.value='';buildPal();e.target.blur()}};
+if(window.claude&&claude.use){claude.use('downloads').then(d=>{DL=d}).catch(()=>{})}
+buildPal();
+function scope(c){const h=34;cx.fillStyle='#0b1a12';cx.fillRect(-30,-h,140,2*h);cx.strokeStyle=col.c;cx.strokeRect(-30,-h,140,2*h);Pp([-40,-20,-30,-20]);Pp([-40,20,-30,20]);cx.stroke();
+cx.strokeStyle='#27493a';cx.lineWidth=1;cx.beginPath();Pp([-30,0,110,0]);cx.stroke();if(!c.ta)return;let mx=1e-3;for(let i=0;i<120;i++)mx=Math.max(mx,Math.abs(c.ta[i]),Math.abs(c.tb[i]));
+const sc=28/mx;cx.lineWidth=1.3;[[c.ta,'#f5d020'],[c.tb,'#35c7ff']].forEach(([a,cl])=>{cx.strokeStyle=cl;cx.beginPath();for(let i=0;i<120;i++){const X=-26+i*1.1,Y=-a[i]*sc;i?cx.lineTo(X,Y):cx.moveTo(X,Y)}cx.stroke()});
+cx.fillStyle='#9ab';cx.font='9px system-ui';cx.textAlign='left';cx.fillText('±'+fm(mx,'V'),-27,-h+9)}
+$('ex').onchange=e=>{const v=e.target.value;e.target.value='';if(v)guard(()=>{if(v=='a')ex();else if(v=='b'){loadProj(JSON.stringify(D555()));comps.forEach(nm_);net=null;mark();hist=[];fut=[]}else{loadProj(JSON.stringify(stress(+v.slice(1))));comps.forEach(nm_);net=null;qs=1;qa=1;$('ql').value='0';mark();hist=[];fut=[]}saved()})};
+const upd=()=>{const u=snap()!==sv;$('us').textContent=u?'● Unsaved changes  ':'';document.title=(u?'* ':'')+'CosLog Y'},saved=()=>{sv=snap();upd()},flash=m=>{$('us').textContent=m+'  ';setTimeout(upd,2500)};setInterval(upd,1000);
+addEventListener('beforeunload',e=>{if(snap()!==sv){e.preventDefault();e.returnValue=''}});
+function dlg(h,bs){$('mb').innerHTML=h+'<div id="mbb" style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px"></div>';bs.forEach(([t,f])=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>{$('md').hidden=true;f&&f()};$('mbb').append(b)});$('md').hidden=false}
+const guard=fn=>snap()===sv?fn():dlg('<b>Unsaved changes</b><div>This circuit has changes that were not saved to a file. Continue and lose them?</div>',[['Cancel'],['Save first',()=>$('sv').click()],['Discard',fn]]);
+function grp(k){if(run)return;const S=comps.filter(c=>c.sel),W=wires.filter(w=>w.sel),n=S.length+W.length;if(!n)return;
+if(S.some(c=>c.t=='os')){if(n>1||k!='r')flash('Oscilloscope cannot be rotated or mirrored with other parts');return}
+const P=S.map(c=>[c.x,c.y]).concat(...W.map(w=>[[w.x1,w.y1],[w.x2,w.y2]])),xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),X=sn((Math.min(...xs)+Math.max(...xs))/2),Y=sn((Math.min(...ys)+Math.max(...ys))/2),
+f={r:(x,y)=>[X-(y-Y),Y+(x-X)],l:(x,y)=>[X+(y-Y),Y-(x-X)],h:(x,y)=>[2*X-x,y],v:(x,y)=>[x,2*Y-y]}[k],
+K=new Set(S.flatMap(c=>pins(c).map(String)).concat(W.flatMap(w=>[[w.x1,w.y1]+'',[w.x2,w.y2]+'']))),E=[];
+wires.forEach(w=>{if(!w.sel){if(K.has([w.x1,w.y1]+''))E.push([w,1]);if(K.has([w.x2,w.y2]+''))E.push([w,2])}});push();
+E.forEach(([w,i])=>{const q=f(w['x'+i],w['y'+i]);w['x'+i]=q[0];w['y'+i]=q[1]});
+S.forEach(c=>{const q=f(c.x,c.y);c.x=q[0];c.y=q[1];if(k=='r')c.r=(c.r+1)&3;else if(k=='l')c.r=(c.r+3)&3;else if(k=='h'){c.r=(4-c.r)&3;c.m=c.m?0:1}else{c.r=(6-c.r)&3;c.m=c.m?0:1}});
+W.forEach(w=>{let q=f(w.x1,w.y1);w.x1=q[0];w.y1=q[1];q=f(w.x2,w.y2);w.x2=q[0];w.y2=q[1]});mark()}
+function copySel(){const S=comps.filter(c=>c.sel),W=wires.filter(w=>w.sel);if(!S.length&&!W.length){flash('Nothing selected');return}clip={c:S.map(cf),w:W.map(w=>({x1:w.x1,y1:w.y1,x2:w.x2,y2:w.y2}))};pn=0;try{navigator.clipboard.writeText(JSON.stringify(Object.assign({app:'CircuitLite-clip'},clip)))}catch(e){}flash('Copied '+S.length+' part(s)')}
+function pasteClip(dup){if(run||!clip)return;const P=clip.c.map(c=>[c.x,c.y]).concat(...clip.w.map(w=>[[w.x1,w.y1],[w.x2,w.y2]]));if(!P.length)return;const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);let dx=40*(++pn),dy=dx;
+if(mIn&&!dup){dx=sn(mouse[0]-(Math.min(...xs)+Math.max(...xs))/2);dy=sn(mouse[1]-(Math.min(...ys)+Math.max(...ys))/2)}push();clearSel();
+clip.c.forEach(a=>{a=Object.assign({},a);delete a.n;a.x+=dx;a.y+=dy;const c=Object.assign(mk(a.t,a.x,a.y,a.r),a);c.sel=1;comps.push(nm_(c))});
+clip.w.forEach(w=>wires.push({x1:w.x1+dx,y1:w.y1+dy,x2:w.x2+dx,y2:w.y2+dy,sel:1}));selUI();mark()}
+$('cp').onclick=copySel;$('ps').onclick=()=>pasteClip();$('mh').onclick=()=>T[tool]?(pmir^=1,dirty()):grp('h');$('mv').onclick=()=>grp('v');cv.onpointerleave=()=>{mIn=0};
+function D555(){const c=(t,x,y,r,o)=>Object.assign({t,x,y,r,on:0},o||{}),w=(a,b,d,e)=>({x1:a,y1:b,x2:d,y2:e});
+return{c:[c('dc',100,200,0,{v:'9'}),c('gnd',100,380,0),c('tm',360,200,0),c('r',480,160,1,{v:'1k'}),c('r',480,260,1,{v:'22k'}),c('c',280,340,1,{v:'10u'}),c('r',600,180,0,{v:'470'}),c('led',700,220,1,{p:'red'})],
+w:[w(100,160,100,100),w(100,100,480,100),w(360,100,360,140),w(480,100,480,120),w(320,160,280,160),w(280,160,280,100),w(480,200,480,220),w(400,220,480,220),w(320,180,280,180),w(280,180,280,300),w(320,220,280,220),w(480,300,280,300),w(100,240,100,380),w(100,380,700,380),w(360,260,360,380),w(400,180,560,180),w(640,180,700,180),w(700,260,700,380)],view:{x:40,y:30,z:.9}}}
+theme();size();const sv0=(()=>{try{return localStorage.getItem('cl2')}catch(e){}})();ex();if(sv0)try{loadProj(sv0)}catch(e){}hist=[];fut=[];setRun(false);saved();
+</script></body></html>

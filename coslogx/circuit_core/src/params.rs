@@ -68,7 +68,7 @@ pub fn keywords(k: Kind) -> &'static str {
         Tr => "transformer", Fu => "fuse protection", Sw => "switch toggle", Bt => "button push momentary", Nb => "normally closed push break",
         Sp => "spdt changeover", Rl => "relay coil contact", D => "diode rectifier", Sd => "schottky", Led => "light emitting indicator",
         Zd => "zener regulator reference", Br => "bridge rectifier full wave", Npn | Pnp => "transistor bjt", Nm | Pm => "mosfet fet transistor",
-        Op => "opamp operational amplifier comparator", Reg => "voltage regulator 7805 ldo", And | Or | Not | Nand | Nor | Xor => "gate logic",
+        Op => "opamp operational amplifier comparator", Reg => "voltage regulator 7805 ldo", Not => "gate logic inverter", And | Or | Nand | Nor | Xor => "gate logic",
         Dff => "flip flop latch memory divider", Ctr => "counter binary digital", Lamp => "bulb light", Mo => "motor", Bz => "buzzer speaker sound beep",
         Vm => "voltmeter meter", Am => "ammeter meter current", Om => "ohmmeter resistance meter", Lg => "logic probe", Os => "scope oscilloscope waveform",
         Jk => "flip flop latch memory toggle", Tf => "flip flop toggle divider frequency", Srf => "flip flop latch set reset memory",
