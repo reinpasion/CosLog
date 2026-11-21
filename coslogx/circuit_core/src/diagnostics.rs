@@ -150,7 +150,8 @@ pub fn dynamic(sim: &mut Sim, proj: &Project, faults: &mut Faults, acc: &DynAcc,
         let n = name(proj, i);
         if p.row.is_some() { let ix = sim.source_current(i).abs(); if ix > spec::SOURCE_RUNAWAY_A { o.push(dg(Level::Error, spec::msg("sourceRunaway", &[("name", &n), ("i", &fm(ix, "A"))]))); } }
         if p.kind == Kind::Led && p.cur > spec::LED_WARN_A { o.push(dg(Level::Warn, spec::msg("ledCurrent", &[("name", &n), ("i", &fm(p.cur, "A"))]))); }
-        if p.kind == Kind::Fu && p.bl { o.push(dg(Level::Info, spec::msg("fuseBlown", &[("name", &n)]))); }
+        // blown-state parts (fuses) come from the spec `state` list, not a hard-coded kind
+        if p.bl && spec::part(p.kind.code()).map_or(false, |s| s.state.contains(&"bl")) { o.push(dg(Level::Info, spec::msg("fuseBlown", &[("name", &n)]))); }
     }
     scan(sim, proj, faults, acc, now, &mut o);
     o

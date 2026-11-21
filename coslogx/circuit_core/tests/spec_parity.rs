@@ -127,3 +127,28 @@ fn rated_parts_expose_rating_params() {
     let c = params::params(Kind::C).into_iter().find(|p| p.key == "s").expect("C voltage rating");
     assert_eq!((c.label, c.unit, c.def), ("Voltage rating", "V", Some("50")));
 }
+
+/// `led_rgb` is driven by the spec ledColors table; unknown names fall back to red.
+#[test]
+fn led_rgb_matches_spec_colors() {
+    for (name, _, rgb) in LED_COLORS {
+        let want: Vec<u8> = rgb.split(',').map(|x| x.trim().parse().unwrap()).collect();
+        assert_eq!(circuit_core::symbols::led_rgb(Some(*name)).to_vec(), want, "{name}");
+    }
+    assert_eq!(circuit_core::symbols::led_rgb(None), circuit_core::symbols::led_rgb(Some("red")));
+    assert_eq!(circuit_core::symbols::led_rgb(Some("magenta")), circuit_core::symbols::led_rgb(Some("red")));
+}
+
+/// The generated drawing/format tables cover exactly what the spec declares.
+#[test]
+fn symbol_text_glow_and_format_tables_match_spec() {
+    assert_eq!(VALUE_FORMAT.len(), PARTS.len());
+    for p in PARTS { assert!(VALUE_FORMAT.iter().any(|e| e.0 == p.code), "{} has no valueFormat", p.code); }
+    assert_eq!(CENTER_TEXT.len(), PARTS.iter().filter(|p| p.center_text.is_some()).count());
+    for e in CENTER_TEXT { assert_eq!(part(e.0).unwrap().center_text, Some(e.1), "{}", e.0); assert!(e.2 > 0.0); }
+    let tm = PIN_TEXT.iter().find(|e| e.0 == "tm").expect("555 captions");
+    assert_eq!(tm.1.len(), 9);
+    assert_eq!(PIN_TEXT.len(), 1, "only the 555 declares pinText");
+    assert!(GLOW.iter().any(|e| e.0 == "led" && e.2.is_none()) && GLOW.iter().any(|e| e.0 == "lamp" && e.2 == Some([255, 210, 60])));
+    for (code, sfx) in VALUE_SUFFIX { for (key, _) in sfx.iter() { assert!(part(code).unwrap().params.iter().any(|p| p.key == *key), "{code}: suffix key {key} is not a param"); } }
+}

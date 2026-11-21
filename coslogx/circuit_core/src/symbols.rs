@@ -1,6 +1,7 @@
 //! Backend-neutral vector symbol renderer (port of the JS `sym`, `osc`, `tml`, `pinLbl`, `lbl`, `junc`).
 //! Everything is emitted as flattened polylines / polygons / text so it can be drawn by egui,
-//! exported to SVG, or unit-tested.
+//! exported to SVG, or unit-tested. Symbol layers, captions, glow, LED colours, value suffixes and
+//! reading formats all come from `spec/parts.json` via build.rs.
 use crate::kind::Kind;
 use crate::netlist::{Part, Wave, NS};
 use crate::project::{Component, Project};
@@ -92,8 +93,10 @@ pub struct SymState {
     pub scope: Option<(Vec<f32>, Vec<f32>)>, pub tdiv: f64, pub vdiv: f64,
 }
 
+/// LED colour from the spec `ledColors` table; unknown or missing names fall back to red (the LED default).
 pub fn led_rgb(p: Option<&str>) -> [u8; 3] {
-    match p { Some("yellow") => [255, 210, 40], Some("green") => [60, 220, 90], Some("blue") => [70, 130, 255], Some("white") => [255, 255, 235], _ => [255, 70, 50] }
+    let find = |n: &str| spec::LED_RGB.iter().find(|e| e.0 == n).map(|e| e.1);
+    p.and_then(find).or_else(|| find("red")).expect("spec ledColors defines red")
 }
 fn nz(x: f64) -> f64 { if x.is_nan() { 0.0 } else { x } }
 fn wave_of(c: &Component) -> Wave { match c.k.as_deref() { Some("square") => Wave::Square, Some("triangle") => Wave::Triangle, Some("sawtooth") => Wave::Sawtooth, _ => Wave::Sine } }
@@ -101,7 +104,7 @@ fn wave_of(c: &Component) -> Wave { match c.k.as_deref() { Some("square") => Wav
 impl SymState {
     /// State for edit mode (no simulation running).
     pub fn edit(c: &Component) -> SymState {
-        let tdiv = pv(c.v.as_deref().unwrap_or("")); 
+        let tdiv = pv(c.v.as_deref().unwrap_or(""));
         SymState { on: c.on != 0, st: false, bl: false, cnt: 0, ang: 0.0, gl: 0.0,
             wiper: nz(pv(c.f.as_deref().unwrap_or(""))), wave: wave_of(c), high: false, rgb: led_rgb(c.p.as_deref()),
             scope: if c.t == Kind::Os { Some((vec![0.0; NS], vec![0.0; NS])) } else { None },
@@ -164,13 +167,14 @@ fn hex(s: &str) -> Col {
     Col::Rgba((n >> 16) as u8, (n >> 8) as u8, n as u8, 255)
 }
 
-/// Draws a part's symbol from the spec layer list: conditional layers, wiper expressions, spinning layers, fills and widgets.
+/// Draws a part's symbol from the spec layer list: conditional layers, wiper expressions, spinning layers, fills,
+/// widgets and in-body captions (spec `pinText`).
 fn sym(k: Kind, st: &SymState, v: &mut Cv) {
     v.begin();
-    let spec = spec::part(k.code()).expect("part has a spec");
+    let ps = spec::part(k.code()).expect("part has a spec");
     let wx = -30.0 + 60.0 * (st.wiper / 100.0).clamp(0.0, 1.0);
     let mut fills: Vec<(usize, usize, Col)> = vec![];
-    for l in spec.symbol {
+    for l in ps.symbol {
         if l.widget == Some("scope") { osc(st, v); continue; }
         if l.when.map_or(false, |w| !w.holds(st)) { continue; }
         let start = v.subs.len();
@@ -186,12 +190,9 @@ fn sym(k: Kind, st: &SymState, v: &mut Cv) {
     }
     v.stroke();
     for (a, b, col) in fills { for sub in v.subs[a..b].to_vec() { if sub.len() > 2 { v.prims.push(Prim::Fill { pts: sub, col }); } } }
-    if k == Kind::Tm {
-        // pin captions of the 555 are not in the spec yet (the web edition draws them in code too)
+    if let Some((_, items)) = spec::PIN_TEXT.iter().find(|e| e.0 == k.code()) {
         v.begin();
-        for (t, x, y, f) in [("RST", -15., -40., 8.), ("TRG", -15., -20., 8.), ("THR", -15., 20., 8.), ("CTL", -15., 40., 8.), ("OUT", 15., -20., 8.), ("DIS", 15., 20., 8.), ("VCC", 0., -46., 8.), ("GND", 0., 47., 8.), ("555", 0., 0., 13.)] {
-            v.text(x, y, t, f, f > 9.0, Align::Center, true, Col::Ink);
-        }
+        for &(t, x, y, size, bold) in items.iter() { v.text(x, y, t, size, bold, Align::Center, true, Col::Ink); }
     }
 }
 
@@ -231,37 +232,50 @@ fn xf(c: &Component, p: Pt) -> Pt {
     (c.x + x, c.y + y)
 }
 
-pub fn unit(k: Kind) -> &'static str {
-    use Kind::*;
-    match k {
-        R | Pot | Lamp | Bz | Ldr | Ntc => "Ω", C => "F", L => "H",
-        Dc | Ac | Zd | Mo | Op | Nm | Pm | And | Or | Not | Lg | Sg | Rl | Sol | Ctr | Reg | Dff | Jk | Srf | Tf => "V",
-        Cs | Fu => "A", Os => "s/div", Tr => ":1", _ => "",
-    }
+/// Unit shown after a part's value (spec `labelUnit`).
+pub fn unit(k: Kind) -> &'static str { k.label_unit() }
+
+/// Spec `valueFormat` of a part: value | meter | ohm | motor | logic | none.
+fn value_format(k: Kind) -> &'static str {
+    spec::VALUE_FORMAT.iter().find(|e| e.0 == k.code()).map(|e| e.1).unwrap_or_else(|| panic!("no valueFormat for {k:?}"))
 }
-/// Value label text (JS `lab`).
+/// Spec `centerText`: (text, size, bold, dy).
+fn center_text(k: Kind) -> Option<(&'static str, f32, bool, f64)> {
+    spec::CENTER_TEXT.iter().find(|e| e.0 == k.code()).map(|e| (e.1, e.2, e.3, e.4))
+}
+
+/// Value label text (JS `lab`): value + unit, then the spec `valueSuffix` entries.
 pub fn label(c: &Component) -> String {
     let Some(v) = &c.v else { return String::new() };
     let mut s = format!("{}{}", v, c.u.as_deref().unwrap_or(unit(c.t)));
-    let f = c.f.as_deref().unwrap_or("");
-    match c.t { Kind::Ac | Kind::Sg => s += &format!(" {f}Hz"), Kind::Pot | Kind::Ldr | Kind::Sol => s += &format!(" {f}%"), Kind::Ntc => s += &format!(" {f}\u{b0}C"), _ => {} }
+    if let Some((_, sfx)) = spec::VALUE_SUFFIX.iter().find(|e| e.0 == c.t.code()) {
+        for (key, u) in sfx.iter() { s += &format!(" {}{}", c.get(key).unwrap_or(""), u); }
+    }
     s
 }
-/// Meter / probe / motor reading (JS `rd`).
+/// Meter / probe / motor reading (JS `rd`), by spec `valueFormat`. Parts with a plain value label return "".
 pub fn reading(k: Kind, av: f64, sq: f64, w: f64, val: f64) -> String {
-    if k == Kind::Mo { let r = (w * 9.549).round(); return format!("{} rpm", if r == 0.0 { 0.0 } else { r }); }
-    if k == Kind::Lg { return if av > val { "HIGH".into() } else { "LOW".into() }; }
-    let rm = sq.sqrt(); let ac = (sq - av * av).max(0.0).sqrt();
-    if k == Kind::Om { return if av > 1e8 { "OL".into() } else { fm(av, "Ω") }; }
-    let u = if k == Kind::Vm { "V" } else { "A" };
-    if ac > 0.02 * rm && ac > 1e-6 { format!("{} rms", fm(rm, u)) } else { fm(av, u) }
+    match value_format(k) {
+        "motor" => { let r = (w * 9.549).round(); format!("{} rpm", if r == 0.0 { 0.0 } else { r }) }
+        "logic" => if av > val { "HIGH".into() } else { "LOW".into() },
+        "ohm" => if av > 1e8 { "OL".into() } else { fm(av, "Ω") },
+        "meter" => {
+            let rm = sq.sqrt(); let ac = (sq - av * av).max(0.0).sqrt();
+            let u = center_text(k).map_or("", |t| t.0); // the meter letter is its unit: V or A
+            if ac > 0.02 * rm && ac > 1e-6 { format!("{} rms", fm(rm, u)) } else { fm(av, u) }
+        }
+        "value" | "none" => String::new(),
+        other => panic!("{k:?}: unknown valueFormat {other:?}"),
+    }
 }
 
 /// Text shown under a part: live reading for meters/probes/motors, otherwise the value label.
 pub fn value_text(c: &Component, reading_txt: Option<&str>) -> String {
-    if matches!(c.t, Kind::Vm | Kind::Am | Kind::Om | Kind::Mo | Kind::Lg) {
-        reading_txt.map(String::from).unwrap_or_else(|| reading(c.t, 0., 0., 0., 1.))
-    } else if c.t == Kind::Gnd { String::new() } else { label(c) }
+    match value_format(c.t) {
+        "value" => label(c),
+        "none" => String::new(),
+        _ => reading_txt.map(String::from).unwrap_or_else(|| reading(c.t, 0., 0., 0., 1.)),
+    }
 }
 
 /// Draw a component in world coordinates. `reading` overrides the value text for meters/probes/motors.
@@ -272,8 +286,11 @@ pub fn draw_component(c: &Component, st: &SymState, reading_txt: Option<&str>, g
     let mut local = Cv::default();
     local.style(Col::Ink, 2.0);
     if st.gl > 0.03 {
-        let (r, g, b) = if c.t == Kind::Led { (st.rgb[0], st.rgb[1], st.rgb[2]) } else { (255, 210, 60) };
-        local.begin(); local.circle(0., 0., if c.t == Kind::Led { 18. } else { 16. });
+        // symbols_golden pins the hand-written behaviour: every kind glows when `gl` is set, so parts without
+        // a spec `glow` entry use the lamp's.
+        let gl = spec::GLOW.iter().find(|e| e.0 == c.t.code()).or_else(|| spec::GLOW.iter().find(|e| e.0 == "lamp")).expect("spec defines a lamp glow");
+        let [r, g, b] = gl.2.unwrap_or(st.rgb);
+        local.begin(); local.circle(0., 0., gl.1);
         local.fill(Col::Rgba(r, g, b, (st.gl.min(1.0) * 0.85 * 255.0) as u8));
     }
     sym(c.t, st, &mut local);
@@ -298,7 +315,7 @@ pub fn draw_component(c: &Component, st: &SymState, reading_txt: Option<&str>, g
             v.text(x, y, sp.pins[i].label.unwrap_or(""), 8., false, Align::Center, true, Col::Ink);
         }
     }
-    if let Some(l) = sp.center_text { v.text(c.x, c.y + 5., l, 14., true, Align::Center, false, Col::Ink); }
+    if let Some((t, size, bold, dy)) = center_text(c.t) { v.text(c.x, c.y + dy, t, size, bold, Align::Center, false, Col::Ink); }
     let b = c.bbox();
     let no = c.no.unwrap_or([0., 0.]); let vo = c.vo.unwrap_or([0., 0.]);
     if let Some(n) = &c.n { v.text(c.x + no[0], b[1] - 4. + no[1], n, 11., true, Align::Center, false, Col::Ink); }

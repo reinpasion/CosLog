@@ -13,6 +13,13 @@ fn opt_str(v: Option<&Value>) -> String {
 fn num(v: &Value) -> f64 { v.as_f64().unwrap_or_else(|| panic!("number expected, got {v}")) }
 fn f(x: f64) -> String { format!("{:?}f64", x) }
 
+/// "r,g,b" -> [r, g, b]; panics loudly on anything else.
+fn rgb3(s: &str, what: &str) -> [u8; 3] {
+    let c: Vec<u8> = s.split(',').map(|x| x.trim().parse().unwrap_or_else(|_| panic!("{what}: {s:?} is not r,g,b bytes"))).collect();
+    assert_eq!(c.len(), 3, "{what}: {s:?} needs 3 components");
+    [c[0], c[1], c[2]]
+}
+
 /// FNV-1a 64 over the file bytes with CRLF normalised to LF. xtask and the web build use the same rule.
 fn spec_hash(bytes: &[u8]) -> String {
     let mut h: u64 = 0xcbf29ce484222325;
@@ -86,6 +93,63 @@ fn gen_spec(spec: &Value, bytes: &[u8]) -> String {
     writeln!(o, "];").unwrap();
     writeln!(o, "pub static LED_COLORS: &[(&str, f64, &str)] = &[").unwrap();
     for (k, v) in spec["ledColors"].as_object().unwrap() { writeln!(o, "    ({}, {}, {}),", q(k), f(num(&v["is"])), q(v["rgb"].as_str().unwrap())).unwrap(); }
+    writeln!(o, "];").unwrap();
+
+    writeln!(o, "pub static LED_RGB: &[(&str, [u8; 3])] = &[").unwrap();
+    for (k, v) in spec["ledColors"].as_object().unwrap() {
+        let c = rgb3(v["rgb"].as_str().unwrap(), &format!("ledColors.{k}"));
+        writeln!(o, "    ({}, [{}, {}, {}]),", q(k), c[0], c[1], c[2]).unwrap();
+    }
+    writeln!(o, "];").unwrap();
+
+    // 555 style captions drawn inside the body: (code, [(text, x, y, size, bold)])
+    writeln!(o, "pub static PIN_TEXT: &[(&str, &[(&str, f64, f64, f32, bool)])] = &[").unwrap();
+    for (code, p) in parts {
+        if let Some(a) = p.get("pinText").and_then(|a| a.as_array()) {
+            let items: Vec<String> = a.iter().map(|t| format!("({}, {}, {}, {:?}f32, {})",
+                q(t["text"].as_str().expect("pinText.text")), f(num(&t["x"])), f(num(&t["y"])), num(&t["size"]), t["bold"].as_bool().unwrap_or(false))).collect();
+            writeln!(o, "    ({}, &[{}]),", q(code), items.join(", ")).unwrap();
+        }
+    }
+    writeln!(o, "];").unwrap();
+
+    // centre letter: (code, text, size, bold, dy); font is "bold 14px" style
+    writeln!(o, "pub static CENTER_TEXT: &[(&str, &str, f32, bool, f64)] = &[").unwrap();
+    for (code, p) in parts {
+        if let Some(c) = p.get("centerText") {
+            let font = c["font"].as_str().expect("centerText.font");
+            let size: f32 = font.split_whitespace().last().unwrap().trim_end_matches("px").parse().unwrap_or_else(|_| panic!("{code}: bad centerText font {font:?}"));
+            writeln!(o, "    ({}, {}, {:?}f32, {}, {}),", q(code), q(c["text"].as_str().expect("centerText.text")), size, font.starts_with("bold"), f(num(&c["dy"]))).unwrap();
+        }
+    }
+    writeln!(o, "];").unwrap();
+
+    // glow: (code, radius, Some(rgb)); None = colour comes from the LED colour parameter
+    writeln!(o, "pub static GLOW: &[(&str, f64, Option<[u8; 3]>)] = &[").unwrap();
+    for (code, p) in parts {
+        if let Some(g) = p.get("glow") {
+            let col = match &g["color"] {
+                Value::String(s) => { let c = rgb3(s, &format!("{code}.glow.color")); format!("Some([{}, {}, {}])", c[0], c[1], c[2]) }
+                Value::Object(m) => { assert_eq!(m.get("map").and_then(|x| x.as_str()), Some("ledColors"), "{code}: glow map must be ledColors"); "None".to_string() }
+                other => panic!("{code}: bad glow color {other}"),
+            };
+            writeln!(o, "    ({}, {}, {col}),", q(code), f(num(&g["r"]))).unwrap();
+        }
+    }
+    writeln!(o, "];").unwrap();
+
+    // value label suffixes: (code, [(param key, unit)]) -> " {value}{unit}"
+    writeln!(o, "pub static VALUE_SUFFIX: &[(&str, &[(&str, &str)])] = &[").unwrap();
+    for (code, p) in parts {
+        if let Some(a) = p.get("valueSuffix").and_then(|a| a.as_array()) {
+            let items: Vec<String> = a.iter().map(|e| format!("({}, {})", q(e["key"].as_str().expect("valueSuffix.key")), q(e["unit"].as_str().expect("valueSuffix.unit")))).collect();
+            writeln!(o, "    ({}, &[{}]),", q(code), items.join(", ")).unwrap();
+        }
+    }
+    writeln!(o, "];").unwrap();
+
+    writeln!(o, "pub static VALUE_FORMAT: &[(&str, &str)] = &[").unwrap();
+    for (code, p) in parts { writeln!(o, "    ({}, {}),", q(code), q(p["valueFormat"].as_str().unwrap_or_else(|| panic!("{code}: valueFormat missing")))).unwrap(); }
     writeln!(o, "];").unwrap();
     o
 }
