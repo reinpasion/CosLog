@@ -7,6 +7,7 @@ use circuit_core::kind::Kind;
 use circuit_core::project::{Component, View};
 use circuit_core::symbols::*;
 use eframe::egui::{self, epaint::PathShape, Align2, Color32, FontId, Painter, Pos2, Rect, Shape, Stroke};
+use circuit_core::spec;
 
 pub const GRID: f64 = 20.0;
 
@@ -72,31 +73,52 @@ fn fault_color(l: Level) -> Color32 { if l == Level::Error { Color32::from_rgb(0
 
 /// Pulsing red (error) / orange (warning) highlights on wires and parts. While the simulation is not
 /// running (or is paused) markers stay visible; while running they fade after their 3 s hold.
-pub fn draw_faults(painter: &Painter, xf: &Xf, ed: &Editor, faults: &Faults, live: bool, now: f64) {
+const SHORT_BADGE: Color32 = Color32::from_rgb(239, 68, 68); // #EF4444
+
+fn pulse(live: bool, now: f64) -> f32 { if live { (0.5 + 0.5 * (now / 170.0).sin()) as f32 } else { 1.0 } }
+
+/// A fault whose message is the spec `faultShort` text or the spec `sourceShort` text: the shorted source itself.
+fn is_short_source(f: &Fault) -> bool {
+    f.level == Level::Error && (f.msg.starts_with(&spec::msg("faultShort", &[])) || f.msg.starts_with("short circuit"))
+}
+
+/// Pulsing translucent glow under faulty wires. Call BEFORE the wires are drawn so it sits behind them.
+/// While running, markers fade after their 3 s hold; while stopped or paused they stay visible.
+pub fn draw_fault_wires(painter: &Painter, xf: &Xf, ed: &Editor, faults: &Faults, live: bool, now: f64) {
     let z = xf.view.z as f32;
-    let pl = if live { (0.5 + 0.5 * (now / 170.0).sin()) as f32 } else { 1.0 };
-    let vis = |f: &Fault| f.until > now || !live;
+    let pl = pulse(live, now);
     for (&wi, f) in &faults.wires {
         let Some(w) = ed.proj.w.get(wi) else { continue };
-        if !vis(f) { continue; }
+        if live && f.until <= now { continue; }
         let col = fault_color(f.level).gamma_multiply(0.25 + 0.45 * pl);
         painter.add(Shape::line_segment([xf.to_screen((w.x1, w.y1)), xf.to_screen((w.x2, w.y2))], Stroke::new(6.0 * z, col)));
     }
+}
+
+/// Dashed boxes, pin rings and badges on faulty parts. Call AFTER the components are drawn.
+/// A shorted source gets a solid #EF4444 badge reading "× short circuit"; other faults keep "✖ <message>".
+pub fn draw_fault_parts(painter: &Painter, xf: &Xf, ed: &Editor, faults: &Faults, live: bool, now: f64) {
+    let z = xf.view.z as f32;
+    let pl = pulse(live, now);
     for (&ci, f) in &faults.comps {
         let Some(c) = ed.proj.c.get(ci) else { continue };
-        if !vis(f) { continue; }
+        if live && f.until <= now { continue; }
         let b = c.bbox(); let cl = fault_color(f.level);
         let r = Rect::from_two_pos(xf.to_screen((b[0] + 4.0, b[1] + 4.0)), xf.to_screen((b[2] - 4.0, b[3] - 4.0)));
         let stroke = Stroke::new(2.0 * z, cl.gamma_multiply(0.4 + 0.6 * pl));
         let pts = vec![r.left_top(), r.right_top(), r.right_bottom(), r.left_bottom(), r.left_top()];
         dashed(painter, pts, stroke, 6.0 * z, 4.0 * z);
         if let Some(pin) = f.pin { if let Some(p) = c.pins().get(pin) { painter.circle_stroke(xf.to_screen(*p), 8.0 * z, stroke); } }
-        let txt: String = f.msg.chars().take(44).collect();
-        let s = format!("{} {}", if f.level == Level::Error { "✖" } else { "⚠" }, txt);
-        let galley = painter.layout_no_wrap(s, FontId::proportional(10.0 * z), Color32::WHITE);
+        let short = is_short_source(f);
+        let (txt, fill) = if short { ("× short circuit".to_string(), SHORT_BADGE) }
+            else { (format!("{} {}", if f.level == Level::Error { "✖" } else { "⚠" }, f.msg.chars().take(44).collect::<String>()), cl) };
+        // font follows zoom but never drops below 9 px, so the text stays legible when zoomed out; egui ships no bold face
+        let fs = (10.0 * z).max(9.0);
+        let galley = painter.layout_no_wrap(txt, FontId::proportional(fs), Color32::WHITE);
+        let pad = 0.4 * fs;
         let tl = xf.to_screen((b[2] + 2.0, b[1] - 1.0));
-        painter.rect_filled(Rect::from_min_size(tl, egui::vec2(galley.size().x + 8.0 * z, 15.0 * z)), 0.0, cl);
-        painter.galley(tl + egui::vec2(4.0 * z, 2.0 * z), galley, Color32::WHITE);
+        painter.rect_filled(Rect::from_min_size(tl, galley.size() + egui::vec2(2.0 * pad, 2.0 * pad * 0.6)), 0.0, fill);
+        painter.galley(tl + egui::vec2(pad, pad * 0.6), galley, Color32::WHITE);
     }
 }
 
@@ -115,6 +137,7 @@ pub fn paint(painter: &Painter, rect: Rect, view: &View, th: &Theme, ed: &Editor
         while gy < w1.1 { painter.circle_filled(xf.to_screen((gx, gy)), 0.75, th.grid); gy += st; }
         gx += st;
     }
+    draw_fault_wires(painter, &xf, ed, faults, live, now);
     for (i, w) in proj.w.iter().enumerate() {
         let col = if ed.sw.get(i).copied().unwrap_or(false) { th.accent } else { th.wire };
         painter.add(Shape::line_segment([xf.to_screen((w.x1, w.y1)), xf.to_screen((w.x2, w.y2))], Stroke::new(2.0 * z, col)));
@@ -127,7 +150,7 @@ pub fn paint(painter: &Painter, rect: Rect, view: &View, th: &Theme, ed: &Editor
         };
         draw_prims(painter, &xf, th, &draw_component(c, &st, rd.as_deref(), false), ed.sc.get(i).copied().unwrap_or(false), 1.0);
     }
-    draw_faults(painter, &xf, ed, faults, live, now);
+    draw_fault_parts(painter, &xf, ed, faults, live, now);
     // overlays
     let (mx, my) = ed.mouse;
     let snapped = (snap(mx), snap(my));
@@ -185,6 +208,15 @@ mod tests {
         let tris = ctx.tessellate(out.shapes, 1.0);
         assert!(!tris.is_empty());
         n.max(tris.len())
+    }
+
+    #[test]
+    fn short_source_faults_are_recognised() {
+        let f = |m: &str| Fault { level: Level::Error, msg: m.into(), pin: None, until: 0.0 };
+        assert!(is_short_source(&f("short circuit")));
+        assert!(is_short_source(&f("short circuit: supplying 9 A")));
+        assert!(!is_short_source(&f("in short-circuit path")));
+        assert!(!is_short_source(&f("overheating 8 W exceeds 250 mW")));
     }
 
     #[test]
