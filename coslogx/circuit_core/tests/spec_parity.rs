@@ -104,3 +104,26 @@ fn spec_hash_matches_fnv_of_file() {
     }
     assert_eq!(format!("{:016x}", h), SPEC_HASH);
 }
+
+/// Kind::ALL is emitted in spec file order; the symbol golden file depends on that order.
+#[test]
+fn kind_all_follows_spec_file_order() {
+    let codes: Vec<&str> = Kind::ALL.iter().map(|k| k.code()).collect();
+    let spec_codes: Vec<&str> = PARTS.iter().map(|p| p.code).collect();
+    assert_eq!(codes, spec_codes);
+}
+
+/// Generated `labelUnit` must agree with the hand-written `symbols::unit` until Increment 5 replaces it.
+#[test]
+fn generated_label_units_match_symbols_unit() {
+    for &k in Kind::ALL { assert_eq!(k.label_unit(), circuit_core::symbols::unit(k), "{:?}", k); }
+}
+
+/// The exposed rating parameters (R `q` power, C `s` voltage) come from the spec with their creation defaults.
+#[test]
+fn rated_parts_expose_rating_params() {
+    let r = params::params(Kind::R).into_iter().find(|p| p.key == "q").expect("R power rating");
+    assert_eq!((r.label, r.unit, r.def), ("Power rating", "W", Some("0.25")));
+    let c = params::params(Kind::C).into_iter().find(|p| p.key == "s").expect("C voltage rating");
+    assert_eq!((c.label, c.unit, c.def), ("Voltage rating", "V", Some("50")));
+}

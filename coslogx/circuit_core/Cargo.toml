@@ -9,4 +9,5 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 rayon = "1.8"
 
 [build-dependencies]
-serde_json = { version = "1", features = ["float_roundtrip"] }
+# preserve_order keeps parts in spec/parts.json file order, which Kind::ALL (and the symbol golden file) depend on.
+serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
